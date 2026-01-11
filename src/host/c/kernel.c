@@ -3,19 +3,19 @@
 #include <stdarg.h>
 #define DEFAULT_COLOR 0xf0
 #define IS_VALID_MEMORY_MAP (1 << 6)
-#define ASSEMBLE_64BIT(low,high) (((multiboot_uint64_t)high) + (((multiboot_uint64_t)low) << 32))
+#define ASSEMBLE_64BIT(low,high) ( ((multiboot_uint64_t)low) | ((multiboot_uint64_t)high << 32) )
 void vga_write(char c, uint8_t color, int index) {
   uint16_t *vga = (uint16_t *)0xb8000;
   vga[index] = c | color << 8;
 }
 int errno = 0;
 int position = 0;
-char kernel_heap[1024 * 1024 * 32];
+char kernel_heap[1024 * 1024];
 static char scancode_to_ascii[128] =
     "&&1234567890-=\b\tqwertyuiop[]\n&asdfghjkl;'`\xff\\zxcvbnm,./\xff*& ";
 static char scancode_to_ascii_shift[128] =
     "&&!@#$%^&*()_+\b\tQWERTYUIOP{}\n&ASDFGHJKL:\"~\xff|ZXCVBNM<>?\xff*& ";
-struct heap_chunk *heap = (struct heap_chunk *)kernel_heap;
+struct heap_chunk *heap = (struct heap_chunk*)kernel_heap;
 
 void enable_cursor(uint8_t cursor_start, uint8_t cursor_end) {
   outw(0x3D4, 0x0A);
@@ -41,23 +41,27 @@ void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
     printf("invalid memory map.\n");
     exit(-1);
   }
-  printf("%d KB of memory available\n",info->mem_lower + info->mem_upper);
-  printf("elf end at 0x%lx \n",end);
+  heap->next = NULL;
+  heap->size = sizeof(kernel_heap);
+  struct heap_chunk* local = heap;
   for (int i=0;i < info->mmap_length;i += sizeof(multiboot_memory_map_t)) {
     multiboot_memory_map_t *map = (void*)(info->mmap_addr + i);
     if (map->type == MULTIBOOT_MEMORY_AVAILABLE) {
-      multiboot_uint64_t len = ASSEMBLE_64BIT(map->len_low,map->len_high);
-      multiboot_uint64_t addr = ASSEMBLE_64BIT(map->addr_low,map->addr_high);
-      printf("%llu bytes of memory at %llu \n",len,addr);
-      printf("LOW:%u bytes of memory at %u \n",map->len_low,map->addr_low);
-      printf("HIGH:%x bytes of memory at %u \n",map->len_high,map->addr_high);
-      printf("%llx\n",ASSEMBLE_64BIT(0x1,0x1));
-//      multiboot_uint64_t *end = (void*)(addr + len - 8);
-  //    printf("bytes 0x%llx at the end, which is address 0x%llx\n",*end,(multiboot_uint64_t)end);
+      if ((void*)(map->addr_low + map->len_low) > end) {
+        if ((void*)map->addr_low >= end) {
+           local->next = (void*)map->addr_low; 
+           local->next->size = map->len_low;
+           local->next->next = NULL;
+           local = local->next; 
+        } else {
+           local->next = (void*)end; 
+           local->next->size = map->addr_low + map->len_low - (multiboot_uint32_t)end;
+           local->next->next = NULL;
+           local = local->next; 
+        }
+      }
     }
   }
-  heap->next = NULL;
-  heap->size = sizeof(kernel_heap);
   init();
 }
 
