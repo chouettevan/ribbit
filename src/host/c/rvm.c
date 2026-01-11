@@ -25,6 +25,10 @@
 #define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
 // )@@
 
+// @@(feature kernel
+#define KERNEL
+// )@@
+
 #ifdef MARK_SWEEP_DSW
 #define MARK_SWEEP
 #endif
@@ -54,6 +58,15 @@
 // )@@
 
 
+#ifdef DEBUG_I_CALL
+#define DEBUG
+#endif
+
+#ifdef KERNEL
+#include "kernel.h"
+#endif
+
+#ifndef KERNEL
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -70,6 +83,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#endif
 #endif
 
 #define ARG_V // @@(feature argv)@@
@@ -1371,6 +1385,7 @@ int main(int _argc, char* _argv[]) {
 #else
 
 int main() { init(); }
+
 
 #endif
 
