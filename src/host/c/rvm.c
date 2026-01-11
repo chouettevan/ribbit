@@ -20,7 +20,7 @@
 #define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
 // )@@
 
-// @@(feature kernel
+// @@(feature grub-kernel
 #define KERNEL
 // )@@
 
