@@ -51,7 +51,7 @@ static size_t fdwrite(char *t, size_t n) {
 
 FILE *fdopen(int fd, const char *modes) {
   if (fd == 0 || fd == 1 || fd == 2) {
-    return (void *)0x1000;
+    return malloc(0x10);
   }
   printf("fdopen not possible on fd %d\n",fd);
   errno = 1;
