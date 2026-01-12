@@ -54,6 +54,9 @@ typedef struct {
   size_t (*write)(char *txt, size_t len);
   size_t (*read)(char *buf, size_t len);
 } FILE;
+extern FILE* stdin;
+extern FILE* stdout;
+extern FILE* stderr;
 extern int errno;
 extern char kernel_heap[];
 extern struct heap_chunk *heap;
