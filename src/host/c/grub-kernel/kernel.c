@@ -33,6 +33,7 @@ void update_cursor(uint16_t pos) {
 }
 
 void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
+  enable_cursor(0,15);
   if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
     printf("wrong magic %x\n",magic);
     exit(-1);
@@ -134,6 +135,7 @@ int putchar(char c) {
     vga_write(c, DEFAULT_COLOR, position);
     position++;
   }
+  update_cursor(position);
   return 1;
 }
 
