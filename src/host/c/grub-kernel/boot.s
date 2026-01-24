@@ -40,17 +40,18 @@
       in al,60h
       ret
     inb:
-      pop ecx
-      pop edx
-      in ax,dx
-      push ecx
+      mov edx,[esp+4]
+      in al,dx
       ret
     outw:
-      pop ecx
-      pop edx
-      pop eax
+      mov edx,[esp+4]
+      mov eax,[esp+8]
+      out dx,ax
+      ret
+    outb:
+      mov edx,[esp+4]
+      mov eax,[esp+8]
       out dx,al
-      push ecx
       ret
     set_page_directory:
       pop eax

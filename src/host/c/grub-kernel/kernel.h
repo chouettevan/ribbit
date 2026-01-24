@@ -80,6 +80,7 @@ extern size_t fread(void *ptr, size_t size, size_t n, FILE *file);
 extern size_t fwrite(const void *ptr, size_t size, size_t n, FILE *file);
 extern char inb(unsigned short port);
 extern void outw(unsigned short, unsigned short);
+extern void outb(unsigned short, unsigned char);
 extern int putchar(char);
 extern char receive_scancode(void);
 // TODO:implement these

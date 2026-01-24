@@ -1,5 +1,5 @@
-#!/bin/sh
-dir=$(echo $0 | sed 's/mk-kernel$//')
+#!/usr/bin/env bash
+dir="$(echo $0 | sed 's/mk-kernel$//')/grub-kernel"
 bck=$(pwd)
 echo $dir $0
 cp "$1" $dir/repl.c
