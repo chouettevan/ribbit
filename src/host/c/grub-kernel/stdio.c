@@ -17,6 +17,7 @@ int fgetc(FILE *stream) {
 }
 
 int fputc(int c, FILE *stream) {
+  ++_string_output_len;
   putchar(c);
   return 1;
 }
