@@ -91,10 +91,8 @@ void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
     gates[i].offset_1 = (uint32_t)irq_handlers[i] & 0x0000ffff;
     gates[i].offset_2 = ((uint32_t)irq_handlers[i] & 0xffff0000) >> 16;
   }
-  printf("%x %x %x \n",irq_handlers[0],gates[0].offset_1,gates[0].offset_2);
   lidt(&idt);
   init();
-  puts("end");
 }
 
 void handle_irq(int number) {
