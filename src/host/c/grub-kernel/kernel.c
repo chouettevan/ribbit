@@ -16,20 +16,36 @@ static char scancode_to_ascii[128] =
 static char scancode_to_ascii_shift[128] =
     "&&!@#$%^&*()_+\b\tQWERTYUIOP{}\n&ASDFGHJKL:\"~\xff|ZXCVBNM<>?\xff*& ";
 struct heap_chunk *heap = (struct heap_chunk*)kernel_heap;
+struct stack_frame *last_frame = NULL;
+
+struct idt idt;
+struct gate_descriptor gates[256];
+typedef void (*irq_handler)();
+irq_handler handlers[256] = {0};
+struct stack irqs;
 
 void enable_cursor(uint8_t cursor_start, uint8_t cursor_end) {
+  
   outw(0x3D4, 0x0A);
   outw(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
   outw(0x3D4, 0x0B);
   outw(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
+  
 }
 
 void update_cursor(uint16_t pos) {
-
   outw(0x3D4, 0x0F);
   outw(0x3D5, (uint8_t)(pos & 0xFF));
   outw(0x3D4, 0x0E);
   outw(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+void show_stack_trace() {
+  struct stack_frame* li = __builtin_frame_address(0);
+  puts("segfault in");
+  while (li != NULL) {
+    printf("eip:0x%x ebp:0x%x\n",li->eip,li->ebp);
+    li = li->ebp;
+  }
 }
 
 void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
@@ -63,10 +79,36 @@ void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
       }
     }
   }
+  idt.offset = gates;
+  idt.size = 256;
+  for (int i=0;i < 256;i++) {
+    gates[i].present = 1;
+    gates[i].zero = 0;
+    gates[i].reserved_zero = 0;
+    gates[i].selector = 0x08;
+    gates[i].gate_type = 0xe;
+    gates[i].dpl = 0;
+    gates[i].offset_1 = (uint32_t)irq_handlers[i] & 0x0000ffff;
+    gates[i].offset_2 = ((uint32_t)irq_handlers[i] & 0xffff0000) >> 16;
+  }
+  printf("%x %x %x \n",irq_handlers[0],gates[0].offset_1,gates[0].offset_2);
+  lidt(&idt);
   init();
+  puts("end");
+}
+
+void handle_irq(int number) {
+  if (number == 13) show_stack_trace();
+  if (irqs.i >= sizeof(irqs.data)/sizeof(irqs.data[0])-1) {
+    printf("unhandled irq %d\n",number);
+    return;
+  }
+  irqs.data[irqs.i] = number;
+  irqs.i++;
 }
 
 void *malloc(size_t size) {
+  
   struct heap_chunk *local = heap;
   struct heap_chunk *prev = heap;
   while (local != NULL) {
@@ -88,10 +130,12 @@ void *malloc(size_t size) {
   }
 
   //  printf("malloc failed: request size:%d\n", size);
+  
   return NULL;
 }
 
 void free(void *a) {
+  
   struct heap_chunk *new = (void *)(a - sizeof(heap->size));
   struct heap_chunk *local = heap;
   struct heap_chunk *prev = heap;
@@ -110,6 +154,7 @@ void free(void *a) {
     local = local->next;
   }
   prev->next = new;
+  
 }
 
 void exit(int code) {
@@ -119,6 +164,7 @@ void exit(int code) {
 }
 
 int putchar(char c) {
+  if (position == 80*25) return 0; 
   if (position == 80 * 25) {
     uint16_t *vga = (uint16_t *)0xb8000;
     for (int i = 80; i < 80 * 25; i++)
@@ -136,10 +182,12 @@ int putchar(char c) {
     position++;
   }
   update_cursor(position);
+  
   return 1;
 }
 
 size_t read(char *txt, size_t size) {
+  
   int shift = 0;
   for (int i = 0; i < size; i++) {
     short c = receive_scancode();
@@ -162,5 +210,10 @@ size_t read(char *txt, size_t size) {
     }
     putchar(txt[i]);
   }
+  
   return size;
+}
+
+void c_irq() {
+  puts("irq");
 }
