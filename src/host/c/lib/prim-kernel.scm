@@ -13,42 +13,43 @@
 (define-primitive (outb port number)
   "{
   PRIM2();
-  outb((unsigned short)UNTAG(x),(unsigned char)UNTAG(y));
+  outb((unsigned short)NUM(x),(unsigned char)NUM(y));
+  push2(FALSE,PAIR_TAG);
   break;
   }")
 
 (define-primitive (inb port)
   "{
   PRIM1();
-  push2(TAG_NUM((int)inb((unsigned short)UNTAG(x))),PAIR_TAG); 
+  push2(TAG_NUM((int)inb((unsigned short)NUM(x))),PAIR_TAG); 
   break;
   }")
 
 (define-primitive (lor a b)
   "{
   PRIM2();
-  push2(TAG_NUM(UNTAG(x) | UNTAG(y)),PAIR_TAG); 
+  push2(TAG_NUM(NUM(x) | NUM(y)),PAIR_TAG); 
   break;
   }")
 
 (define-primitive (land a b)
   "{
   PRIM2();
-  push2(TAG_NUM(UNTAG(x) & UNTAG(y)),PAIR_TAG); 
+  push2(TAG_NUM(NUM(x) & NUM(y)),PAIR_TAG); 
   break;
   }")
 
 (define-primitive (lxor a b)
   "{
   PRIM2();
-  push2(TAG_NUM(UNTAG(x) ^ UNTAG(y)),PAIR_TAG); 
+  push2(TAG_NUM(NUM(x) ^ NUM(y)),PAIR_TAG); 
   break;
   }")
 
 (define-primitive (lshift a b)
   "{
   PRIM2();
-  push2(TAG_NUM(UNTAG(x) >> UNTAG(y)),PAIR_TAG); 
+  push2(TAG_NUM(NUM(x) << NUM(y)),PAIR_TAG); 
   break;
   }")
 
