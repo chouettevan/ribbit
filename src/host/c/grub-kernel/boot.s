@@ -15,14 +15,34 @@
                                     ; (magic number + checksum + flags should equal 0)
 
 
-%macro irq_handler 1
+%macro irq_handler_noerror 1
+  align 4
   irq_%1:
-    pushad 
+    pushad
+    push 0
+    push 0
     push %1
     cld
     call handle_irq
-    pop eax
+    add esp,12
     popad
+    iret
+%endmacro
+%macro irq_handler_error 1
+  align 4
+  irq_%1:
+    push eax
+    mov eax,[esp+4]
+    pushad
+    push eax
+    push 1
+    push %1
+    cld
+    call handle_irq
+    add esp,12
+    popad
+    pop eax
+    add esp,4
     iret
 %endmacro
 %macro irq_entry 1
@@ -38,7 +58,16 @@
     extern kernel_main
     extern c_irq
     loader:                         ; the loader label (defined as entry point in linker script)
+      cli
+      jmp 0x08:kload
+    kload:
        mov edx,eax
+       mov ax,0x10
+       mov ds,ax
+       mov es,ax
+       mov fs,ax
+       mov gs,ax
+       mov ss,ax
        mov ax,0xf001
        out 0x60,ax
        mov esp, kernel_stack + KERNEL_STACK_SIZE 
@@ -72,6 +101,7 @@
       ret
     inb:
       mov edx,[esp+4]
+      xor eax,eax
       in al,dx
       ret
     outw:
@@ -89,17 +119,79 @@
       mov cr3,eax
       ret
 section .text
+
 %assign i 0
-%rep 256
-  irq_handler i
+%rep 7
+  irq_handler_noerror i
 %assign i i+1
 %endrep
+
+irq_handler_noerror 7
+irq_handler_error 8
+irq_handler_noerror 9
+
+%assign i 10
+%rep 5
+  irq_handler_error i
+%assign i i+1
+%endrep
+
+irq_handler_noerror 15
+irq_handler_noerror 16
+irq_handler_error 17
+
+%assign i 18
+%rep 3
+  irq_handler_noerror i
+%assign i i+1
+%endrep
+
+irq_handler_error 21
+
+%assign i 22
+%rep 6
+  irq_handler_noerror i
+%assign i i+1
+%endrep
+
+irq_handler_noerror 28
+irq_handler_error 29
+irq_handler_error 30
+irq_handler_error 31
+
+%assign i 32
+%rep 224
+  irq_handler_noerror i
+%assign i i+1
+%endrep
+
 irq_handlers:
 %assign i 0
 %rep 256
   irq_entry i
 %assign i i+1
 %endrep
+
+gdtr:
+  dw 0x18
+  dd gdt
+gdt:
+  dq 0
+gdt_code:
+  dd 0xffff
+  dd 0x0000
+  db 0x00
+  db 0x9a
+  db 0xfc
+  db 0x00
+gdt_data:
+  dd 0xffff
+  dd 0x0000
+  db 0x00
+  db 0x92
+  db 0xfc
+  db 0x00
+  
 
     KERNEL_STACK_SIZE equ 16384; size of stack in bytes
     section .bss

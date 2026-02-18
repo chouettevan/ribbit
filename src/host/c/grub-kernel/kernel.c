@@ -23,14 +23,13 @@ struct gate_descriptor gates[256];
 typedef void (*irq_handler)();
 irq_handler handlers[256] = {0};
 struct stack irqs;
+struct interrupt_frame;
 
 void enable_cursor(uint8_t cursor_start, uint8_t cursor_end) {
-  
   outw(0x3D4, 0x0A);
   outw(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
   outw(0x3D4, 0x0B);
   outw(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
-  
 }
 
 void update_cursor(uint16_t pos) {
@@ -39,6 +38,7 @@ void update_cursor(uint16_t pos) {
   outw(0x3D4, 0x0E);
   outw(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
+
 void show_stack_trace() {
   struct stack_frame* li = __builtin_frame_address(0);
   puts("segfault in");
@@ -46,6 +46,7 @@ void show_stack_trace() {
     printf("eip:0x%x ebp:0x%x\n",li->eip,li->ebp);
     li = li->ebp;
   }
+  for (;;);
 }
 
 void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
@@ -92,21 +93,29 @@ void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
     gates[i].offset_2 = ((uint32_t)irq_handlers[i] & 0xffff0000) >> 16;
   }
   lidt(&idt);
+//  printf("%d\n",magic/(magic - magic));
   init();
 }
 
-void handle_irq(int number) {
-  if (number == 13) show_stack_trace();
+void handle_irq(const int number,const int has_code,const int code)
+{
   if (irqs.i >= sizeof(irqs.data)/sizeof(irqs.data[0])-1) {
     printf("unhandled irq %d\n",number);
     return;
   }
+  if (has_code)
+    printf("irq %d with code %d\n",number,code);
+  else
+    printf("irq %d with no code\n",number,code);
+  if (number == 13) show_stack_trace();
   irqs.data[irqs.i] = number;
   irqs.i++;
 }
 
 void *malloc(size_t size) {
-  
+  static int heap_lock = 0;
+  if (heap_lock == 1) return NULL;
+  else heap_lock = 1;
   struct heap_chunk *local = heap;
   struct heap_chunk *prev = heap;
   while (local != NULL) {
@@ -117,18 +126,19 @@ void *malloc(size_t size) {
         fragment->next = local->next;
         fragment->size = local->size - size;
         local->size = size;
+        heap_lock = 0; 
         return (void *)(local) + sizeof(local->size);
       } else {
         prev->next = local->next;
+        heap_lock = 0; 
         return (void *)(local) + sizeof(local->size);
       }
     }
     prev = local;
     local = local->next;
   }
-
   //  printf("malloc failed: request size:%d\n", size);
-  
+  heap_lock = 0; 
   return NULL;
 }
 
@@ -162,7 +172,6 @@ void exit(int code) {
 }
 
 int putchar(char c) {
-  if (position == 80*25) return 0; 
   if (position == 80 * 25) {
     uint16_t *vga = (uint16_t *)0xb8000;
     for (int i = 80; i < 80 * 25; i++)
@@ -180,7 +189,6 @@ int putchar(char c) {
     position++;
   }
   update_cursor(position);
-  
   return 1;
 }
 
