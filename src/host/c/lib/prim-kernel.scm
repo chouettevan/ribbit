@@ -53,3 +53,56 @@
   break;
   }")
 
+
+(define com (lambda (k) (+ 1016 k)))
+
+(define setup-serial (lambda (com)
+  (begin
+  (outb (com 1) 0)
+  (outb (com 3) (lshift 1 7))
+  (outb (com 0) 3)
+  (outb (com 1) 0)
+  (outb (com 3) 3)
+  (outb (com 2) 199)
+  (outb (com 4) 11)
+  (outb (com 4) 30)
+  (outb (com 0) 23)
+  (let ((result (= (inb (com 0)) 23)))
+    (begin
+      (outb (com 4) 15)
+      (outb (com 1) 1) 
+      result)))))
+
+
+(define is-clear (lambda () (not (= (land (inb (com 5)) 32) 0))))
+(define send-serial
+  (lambda (x) 
+    (if (is-clear) (outb (com 0) x) (send-serial x))))
+
+(define send-str-serial-len
+  (lambda (str len)
+    (if (= len 0)
+      #f
+      (begin
+        (send-serial (car str))
+        (send-str-serial-len (cdr str) (- len 1))))))
+
+(define send-str-serial
+  (lambda (str) (send-str-serial-len (car str) (cdr str))))
+
+(define %%%write-char-fd %%write-char-fd)
+(define %%%read-char-fd %%read-char-fd)
+
+(define is-serial-ready #f)
+
+(define  
+  (%%write-char-fd ch fd)
+  (begin
+  (if (not is-serial-ready)
+    (begin
+    (setup-serial com)
+    (set! is-serial-ready #t))
+    #f)
+  (%%%write-char-fd ch fd)
+  (send-serial ch)))
+
