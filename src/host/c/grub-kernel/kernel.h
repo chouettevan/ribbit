@@ -3,6 +3,7 @@ typedef unsigned int uint32_t;
 typedef unsigned char uint8_t;
 typedef unsigned size_t;
 /* From https://wiki.osdev.org/8259_PIC#Programming_the_PIC_chips */
+#define EOF -1
 #define PIC1		0x20		/* IO base address for master PIC */
 #define PIC2		0xA0		/* IO base address for slave PIC */
 #define PIC1_COMMAND	PIC1
