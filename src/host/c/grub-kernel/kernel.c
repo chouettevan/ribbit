@@ -106,7 +106,7 @@ void handle_irq(const int number,const int has_code,const int code)
   if (has_code)
     printf("irq %d with code %d\n",number,code);
   else
-    printf("irq %d with no code\n",number,code);
+    printf("irq %d with no code\n",number);
   if (number == 13) show_stack_trace();
   irqs.data[irqs.i] = number;
   irqs.i++;
@@ -194,7 +194,7 @@ int putchar(char c) {
 
 size_t read(char *txt, size_t size) {
   
-  int shift = 0;
+  static int shift = 0;
   for (int i = 0; i < size; i++) {
     short c = receive_scancode();
     if (c == 0x2a) {
@@ -214,7 +214,7 @@ size_t read(char *txt, size_t size) {
     } else {
       txt[i] = scancode_to_ascii[c];
     }
-    putchar(txt[i]);
+//    putchar(txt[i]);
   }
   
   return size;
