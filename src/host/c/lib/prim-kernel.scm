@@ -21,7 +21,7 @@
 (define-primitive (inb port)
   "{
   PRIM1();
-  push2(TAG_NUM((int)inb((unsigned short)NUM(x))),PAIR_TAG); 
+  push2(TAG_NUM(inb((unsigned short)NUM(x))),PAIR_TAG); 
   break;
   }")
 
@@ -52,6 +52,11 @@
   push2(TAG_NUM(NUM(x) << NUM(y)),PAIR_TAG); 
   break;
   }")
+(define-primitive (set-interrupts)
+  "{
+  __asm__(\"sti\");
+  push2(FALSE,PAIR_TAG);
+  }")
 
 
 (define com (lambda (k) (+ 1016 k)))
@@ -62,7 +67,7 @@
   (outb (com 3) (lshift 1 7))
   (outb (com 0) 3)
   (outb (com 1) 0)
-  (outb (com 3) 3)
+  (outb (com 3) 7)
   (outb (com 2) 199)
   (outb (com 4) 11)
   (outb (com 4) 30)
@@ -75,9 +80,15 @@
 
 
 (define is-clear (lambda () (not (= (land (inb (com 5)) 32) 0))))
+(define is-recv-clear (lambda () (not (= (land (inb (com 5)) 1) 0))))
+
 (define send-serial
   (lambda (x) 
     (if (is-clear) (outb (com 0) x) (send-serial x))))
+
+(define recv-serial
+  (lambda () 
+    (if (is-recv-clear) (inb (com 0)) (recv-serial))))
 
 (define send-str-serial-len
   (lambda (str len)
@@ -91,12 +102,25 @@
   (lambda (str) (send-str-serial-len (car str) (cdr str))))
 
 (define %%%write-char-fd %%write-char-fd)
-(define %%%read-char-fd %%read-char-fd)
+(define keyboard-read %%read-char-fd)
+
+(define get-input recv-serial)
 
 (define is-serial-ready #f)
 
-(define  
-  (%%write-char-fd ch fd)
+(define set-keyboard-input
+  (lambda () (set! get-input (lambda () (keyboard-read #f)))))
+
+(define set-serial-input
+  (lambda () (set! get-input recv-serial)))
+
+(define enable-echo 
+  (lambda () (set! %%read-char-fd echo-read)))
+
+(define disable-echo 
+  (lambda () (set! %%read-char-fd noecho-read)))
+
+(define (%%write-char-fd ch fd)
   (begin
   (if (not is-serial-ready)
     (begin
@@ -104,5 +128,11 @@
     (set! is-serial-ready #t))
     #f)
   (%%%write-char-fd ch fd)
-  (send-serial ch)))
+  (send-serial ch)
+  ch))
+
+(define (noecho-read fd) (get-input))
+(define (echo-read fd) 
+  (%%write-char-fd (get-input) fd))
+(define %%read-char-fd echo-read)
 
