@@ -1,4 +1,5 @@
 /*
+ *
  * The Ribbit VM implementation in C
  */
 
@@ -16,7 +17,9 @@
 // @@(feature debug-gc
 #define DEBUG_GC
 // )@@
-
+// @@(feature c/gc/treadmill
+#define TREADMILL
+// )@@
 // @@(feature c/gc/mark-sweep
 #define MARK_SWEEP
 // )@@
@@ -36,7 +39,6 @@
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
-
 #ifdef KERNEL
 #include "kernel.h"
 #endif
@@ -145,9 +147,24 @@ typedef long num;
 
 // a rib obj
 #define RIB_NB_FIELDS 3
-typedef struct {
+typedef struct rib {
   obj fields[RIB_NB_FIELDS];
+#ifdef TREADMILL
+    struct rib* li_next;
+    struct rib* li_prev;
+#endif
 } rib;
+#ifdef TREADMILL
+struct list {
+  rib* start;
+  rib* end;
+};
+void add_to_list(struct list* list,rib* obj);
+struct list new;
+struct list black;
+struct list grey;
+struct list white;
+#endif
 
 // GC constants
 rib *heap_start;
@@ -286,6 +303,9 @@ void *sys_brk(void *addr) {
 
 #endif
 
+rib real_root_2;
+rib real_root;
+rib *root = &real_root;
 void init_heap() {
 #ifdef NO_STD
   heap_start = sys_brk((void *)NULL);
@@ -306,6 +326,23 @@ void init_heap() {
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
+#endif
+#ifdef TREADMILL
+  real_root.fields[0] = (obj)&real_root_2;
+  real_root.fields[1] = (obj)&FALSE;
+  real_root_2.fields[0] = (obj)&stack;
+  real_root_2.fields[1] = (obj)&pc;
+  heap_start = malloc(sizeof(obj) * MAX_NB_OBJS*5);
+  if ((obj)heap_start & 7) {
+      puts("unaligned heap start");
+      exit(-1);
+  }
+  for  (rib* start = heap_start;start < heap_start + MAX_NB_OBJS;start++) {
+    add_to_list(&new,start);
+  }
+  black.start = (void*)&black;
+  grey.start = (void*)&grey;
+  white.start = (void*)&white;
 #endif
 
 #ifdef MARK_SWEEP
@@ -528,6 +565,110 @@ void gc() {
   // @@(location gc-end)@@
 }
 #endif // end of GC algorithms
+#ifdef TREADMILL
+#define GC_STARTED 1
+#define IS_LIST_END(obj) ((void*)obj == &new || (void*)obj == &black || (void*)obj == &grey || (void*)obj == &white)
+#define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~3))
+#define PTR_1(obj) ((rib*)obj->fields[0])
+#define PTR_2(obj) ((rib*)obj->fields[1])
+#define TAG_BITS 3
+
+#define GREY 1
+#define BLACK_WHITE 2
+#define WHITE_BLACK 0
+int free_alloc = 2;
+
+int flags;
+int  flipped = 0;
+
+void rt_gc() {
+  if (grey.start == &grey && ~(flags & GC_STARTED)) {
+    add_to_list(&grey,root);
+    root->li_next = (void*)((obj)root->li_next | GREY);
+    flags |= GC_STARTED;
+  }
+
+
+  if (grey.start == &grey) {
+    rib* start = new.start;
+    new.start = white.start;
+    white.end->li_next = new.start;
+    white.end = NULL;
+    white.start = (void*)&white;
+    flipped = 2 & ~(flipped);
+    struct list backup = black;
+    white.start = black.start;
+    white.end = black.end;
+    flags &= ~GC_STARTED;
+  } else {
+    rib* object = grey.start;
+    if (((obj)PTR_1(object) & 2) == 0 && ((obj)(PTR_1(object)->li_next) & 2) ^ flipped) {
+      PTR_1(object)->li_next = (void*)((obj)object->li_next | GREY);
+      add_to_list(&grey,PTR_1(object));
+    }
+    
+    if (((obj)PTR_2(object) & 2) == 0 && ((obj)PTR_2(object)->li_next & 2) ^ flipped) {
+      PTR_2(object)->li_next = (void*)((obj)object->li_next | GREY);
+      add_to_list(&grey,PTR_2(object));
+    }
+
+    object->li_next = (void*)((obj)object->li_next & ~GREY);
+    add_to_list(&black,object);
+
+    if (flipped) {
+      object->li_next = (void*)((obj)object->li_next | 2);
+    } else {
+      object->li_next = (void*)((obj)object->li_next & ~2);
+    }
+  }
+
+  rib* object = new.start;
+  if (flipped) {
+    object->li_next = (void*)((obj)object->li_next & ~2);
+  } else {
+    object->li_next = (void*)((obj)object->li_next | 2);
+  }
+}
+
+void add_to_list(struct list* list,rib* object) {
+  if (object == NULL || list == NULL)
+    return;
+  if (TR_UNTAG(object->li_next) && TR_UNTAG(object->li_prev)) {
+  if (!IS_LIST_END(TR_UNTAG(object->li_next))) {
+    TR_UNTAG(object->li_next)->li_prev = object->li_prev;
+  } else {
+    ((struct list*)TR_UNTAG(object->li_next))->end = object->li_prev;
+    object->li_prev->li_next = object->li_next;  
+  }
+  if (!IS_LIST_END(object->li_prev)) {
+    object->li_prev->li_next = object->li_next;
+  } else {
+    ((struct list*)object->li_prev)->start = TR_UNTAG(object->li_next);
+    TR_UNTAG(object->li_next)->li_prev = object->li_prev;
+  }
+  }
+  object->li_next = list->start;
+  if (list->start != NULL && list->start != list)
+    list->start->li_prev = object;
+  else {
+    list->end = object;
+  }
+  list->start = object;
+  object->li_prev = (void*)list;
+}
+
+rib* remove_from_list(struct list* list) {
+  if (list == NULL) return NULL;
+  if (list->start == list) {
+    list->end = NULL;
+    return NULL;
+  }
+  rib* object = list->start;
+  list->start = object->li_next;
+  TR_UNTAG(object->li_next)->li_prev = NULL;
+  return object;
+}
+#endif
 
 obj pop() {
   obj x = CAR(stack);
@@ -536,6 +677,23 @@ obj pop() {
 }
 
 void push2(obj car, obj tag) {
+#ifdef TREADMILL
+    if (new.end == NULL) { // list is empty
+        puts("out of memory");
+        exit(-1);
+    }
+    rib* result = new.start;
+    add_to_list(&white,result);
+    if (free_alloc > 0) {
+        free_alloc--;
+    } else {
+        rt_gc();
+    }
+    result->fields[0] = car;
+    result->fields[1] = stack;
+    result->fields[2] = tag;
+    stack = TAG_RIB(result);
+#else
 #ifdef MARK_SWEEP
   obj tmp = *alloc; // next available slot in freelist
 #endif  
@@ -554,6 +712,7 @@ void push2(obj car, obj tag) {
   if (alloc == alloc_limit) {
     gc();
   }
+#endif
 #endif
 }
 
@@ -1145,7 +1304,6 @@ void build_sym_table() {
 
   while (1) {
     byte c = get_byte();
-
     if (c == 44) {
       symbol_table = TAG_RIB(create_sym(accum));
       accum = NIL;
