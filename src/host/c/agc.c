@@ -1,37 +1,10 @@
 /* 
- * File: es.c
+ * File: agc.c
  *
- * Author: Frédéric Lahaie-Bertrand
+ * Authors: Frédéric Lahaie-Bertrand, Léonard Oest O'Leary, Olivier Melançon
  *
- * Implementation of the Ribbit Virtual Machine in C with an incremental 
- * garbage collector inspired by Even-Shiloach trees
- */
-
-/* 
- * TODO
- * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
- *   primitives, apply, ... you know, make it work)
- * - Mirror fields with offset or with explicit mirror fields
- * - Double mirror fields
- * - Call a GC for every instruction to make sure everything is collected...
- *   (do that for the bootstrap, the test suite, and fuzzing)
- * - Cleanup the code and fix the FIXMEs and TODOs in the code
- *
- * When the stars will align
- * - Queues implemented directly on the heap with (potentially) a sorting phase
- *   OR make the heap dynamic
- * - Allocation strategy using ref count rather than ranks
- * - Don't chain FALSE's referrers
- * - Better system for negative ranks
- * - Reranking phase
- * - Finalizers
- * - Concurrent or parallel deallocation (probably won't happen for ribbit)
- * - Memory transactions for mutations
- * - Ref count / mark-and-sweep: last object should be a "null rib", not _NULL
- * - Make it a full RVM: add missing features from the original RVM (encoding,
- *   sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
- *   stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.)
- * - ... optimizations?
+ * Implementation of the Ribbit Virtual Machine in C with the Arborescent
+ * Garbage Collector.
  */
 
 // @@(location import)@@
