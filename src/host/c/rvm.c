@@ -29,6 +29,31 @@
 #define MARK_SWEEP
 #endif
 
+// @@(feature c/gc/bigger-heap-2
+#define BIGGER_HEAP_2
+// )@@
+
+// @@(feature c/gc/bigger-heap-4
+#define BIGGER_HEAP_4
+// )@@
+
+// @@(feature c/gc/bigger-heap-8
+#define BIGGER_HEAP_8
+// )@@
+
+// @@(feature c/gc/bigger-heap-16
+#define BIGGER_HEAP_16
+// )@@
+
+// @@(feature c/gc/bigger-heap-32
+#define BIGGER_HEAP_32
+// )@@
+
+// @@(feature c/gc/bigger-heap-64
+#define BIGGER_HEAP_64
+// )@@
+
+
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -67,7 +92,7 @@ unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,
 // )@@
 // )@@
 
-// @@(feature compression/lzss/2b
+  // @@(feature compression/lzss/2b
 
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
 unsigned char compressed_input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
@@ -129,24 +154,55 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
-// a rib obj
+
+// GC constants
+
+// ATTENTION PLEASE: don't change the base size during testing
+#ifndef BASE_HEAP_SIZE_FIELDS
+#define BASE_HEAP_SIZE_FIELDS 24000000
+#endif
+
 #define RIB_NB_FIELDS 3
+
+#if defined(BIGGER_HEAP_2)
+#define HEAP_SIZE_FACTOR 2
+#elif defined(BIGGER_HEAP_4)
+#define HEAP_SIZE_FACTOR 4
+#elif defined(BIGGER_HEAP_8)
+#define HEAP_SIZE_FACTOR 8
+#elif defined(BIGGER_HEAP_16)
+#define HEAP_SIZE_FACTOR 16
+#elif defined(BIGGER_HEAP_32)
+#define HEAP_SIZE_FACTOR 32
+#elif defined(BIGGER_HEAP_64)
+#define HEAP_SIZE_FACTOR 64
+#else
+#define HEAP_SIZE_FACTOR 1
+#endif
+
+#ifndef HEAP_SIZE_FIELDS
+#define HEAP_SIZE_FIELDS (BASE_HEAP_SIZE_FIELDS * HEAP_SIZE_FACTOR)
+#endif
+
+#ifndef HEAP_SIZE_BYTES
+#define HEAP_SIZE_BYTES (HEAP_SIZE_FIELDS * sizeof(obj))
+#endif
+
+#define MAX_NB_OBJS (HEAP_SIZE_FIELDS / RIB_NB_FIELDS)
+
 typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
 
-// GC constants
 rib *heap_start;
-#define MAX_NB_OBJS 4000000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
+#define heap_top (heap_bot + (HEAP_SIZE_FIELDS))
 #ifdef MARK_SWEEP
-#define heap_top (heap_bot + (SPACE_SZ))
 #define _NULL ((obj)NULL)
 #else
 obj *alloc_limit;
-#define heap_mid (heap_bot + (SPACE_SZ))
-#define heap_top (heap_bot + (SPACE_SZ << 1))
+#define heap_mid (heap_bot + (HEAP_SIZE_FIELDS >> 1))
 #endif
 // end GC constants
 
@@ -190,7 +246,7 @@ obj check_access(obj x){
     printf("ERROR ACCESSING NUMBER AS RIB %ld\n", NUM(x));
   }
   obj to_space_start = (obj)((alloc_limit == heap_mid) ? heap_mid : heap_bot);
-  obj to_space_end   = (obj)(to_space_start + SPACE_SZ);
+  obj to_space_end   = (obj)(to_space_start + (HEAP_SIZE_FIELDS/2));
 
   if (to_space_start < x && x < to_space_end){
     printf("ERROR ACCESSING OUTSIDE SPACE %ld\n", NUM(x));
@@ -223,7 +279,6 @@ obj check_access(obj x){
 #define STRING_TAG TAG_NUM(3)
 #define SINGLETON_TAG TAG_NUM(5)
 
-// @@(location decl)@@
 // the only three roots allowed
 obj stack = NUM_0;
 obj pc = NUM_0;
@@ -282,13 +337,8 @@ void init_heap() {
   }
 
 #else
+  heap_start = malloc(HEAP_SIZE_BYTES);
 
-#ifdef MARK_SWEEP
-  heap_start = malloc(sizeof(obj) * SPACE_SZ);
-#else
-  heap_start = malloc(sizeof(obj) * (SPACE_SZ << 1));
-#endif
-  
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
@@ -297,6 +347,7 @@ void init_heap() {
 #ifdef MARK_SWEEP
   // initialize freelist
   scan = heap_top;
+  // scan -= RIB_NB_FIELDS;
   *scan = _NULL;
   
   while (scan != heap_bot) {
@@ -388,14 +439,17 @@ void mark(obj *o) {
 #else
 
 void mark(obj *o) { // Recursive version of marking phase
-  if (IS_RIB(*o)) {
-    obj *ptr = RIB(*o)->fields;
-    if (!IS_MARKED(ptr[2])) { 
-      obj tmp = ptr[2]; 
-      ptr[2] = MARK(ptr[2]);
+  obj z = *o;
+  while (IS_RIB(z)) {
+    obj *ptr = RIB(z)->fields;
+    if (!IS_MARKED(ptr[1])) { 
+      obj tmp = ptr[1]; 
+      ptr[1] = MARK(ptr[1]);
       mark(&ptr[0]);
-      mark(&ptr[1]);
-      mark(&tmp);
+      mark(&ptr[2]);
+      z = tmp;
+    } else {
+      break;
     }
   }
 }
@@ -403,7 +457,7 @@ void mark(obj *o) { // Recursive version of marking phase
 #endif
 
 void gc() {
-  // @@(location gc-start)@@
+  // @@(location profile-start-gc)@@
 #ifdef DEBUG_GC
   printf("\t--GC called\n");
 #endif
@@ -414,9 +468,9 @@ void gc() {
   // Sweep
   scan=heap_bot;
   while (scan != heap_top) {
-    obj tag = *(scan+2);
+    obj tag = *(scan+1);
     if (IS_MARKED(tag)) {
-      *(scan+2) = UNMARK(tag);
+      *(scan+1) = UNMARK(tag);
     } else {
       *scan = (obj)alloc;
       alloc = scan;
@@ -427,7 +481,7 @@ void gc() {
     printf("Heap is full\n");
     exit(2);
   }
-  // @@(location gc-end)@@
+  // @@(location profile-stop-gc)@@
 }
 
 #else
@@ -467,7 +521,7 @@ void copy() {
 }
 
 void gc() {
-  // @@(location gc-start)@@
+  // @@(location profile-start-gc)@@
 #ifdef DEBUG_GC
   obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
 
@@ -477,7 +531,7 @@ void gc() {
 
   // swap
   obj *to_space = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
-  alloc_limit = to_space + SPACE_SZ;
+  alloc_limit = to_space + (HEAP_SIZE_FIELDS/2);
 
   alloc = to_space;
 
@@ -511,7 +565,7 @@ void gc() {
   fflush(stdout);
 
 #endif
-  // @@(location gc-end)@@
+  // @@(location profile-stop-gc)@@
 }
 #endif // end of GC algorithms
 
@@ -541,6 +595,11 @@ void push2(obj car, obj tag) {
     gc();
   }
 #endif
+}
+
+// Simple version of push for stack operations
+static inline void push(obj car){
+  push2(car, PAIR_TAG);
 }
 
 /**
