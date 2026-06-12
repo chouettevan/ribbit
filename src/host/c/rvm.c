@@ -179,7 +179,6 @@ typedef long num;
 #endif
 
 #define RIB_NB_FIELDS 3
-<<<<<<< HEAD
 
 #if defined(BIGGER_HEAP_2)
 #define HEAP_SIZE_FACTOR 2
@@ -207,13 +206,14 @@ typedef long num;
 
 #define MAX_NB_OBJS (HEAP_SIZE_FIELDS / RIB_NB_FIELDS)
 
-typedef struct rib {
+typedef struct ribs {
   obj fields[RIB_NB_FIELDS];
 #ifdef TREADMILL
-    struct rib* li_next;
-    struct rib* li_prev;
+    struct ribs* li_next;
+    struct ribs* li_prev;
 #endif
 } rib;
+
 #ifdef TREADMILL
 struct list {
   rib* start;
