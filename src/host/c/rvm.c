@@ -359,7 +359,6 @@ void *sys_brk(void *addr) {
 
 #endif
 
-rib real_root_2;
 rib real_root;
 rib *root = &real_root;
 void init_heap() {
@@ -379,10 +378,9 @@ void init_heap() {
   }
 #endif
 #ifdef TREADMILL
-  real_root.fields[0] = (obj)&real_root_2;
+  real_root.fields[0] = (obj)&stack;
   real_root.fields[1] = (obj)&FALSE;
-  real_root_2.fields[0] = (obj)&stack;
-  real_root_2.fields[1] = (obj)&pc;
+  real_root.fields[2] = (obj)&pc;
   heap_start = malloc(sizeof(obj) * MAX_NB_OBJS*5);
   if ((obj)heap_start & 7) {
       puts("unaligned heap start");
@@ -626,6 +624,7 @@ void gc() {
 #define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~3))
 #define PTR_1(obj) ((rib*)obj->fields[0])
 #define PTR_2(obj) ((rib*)obj->fields[1])
+#define PTR_3(obj) ((rib*)obj->fields[2])
 #define TAG_BITS 3
 
 #define GREY 1
@@ -635,6 +634,14 @@ int free_alloc = 2;
 
 int flags;
 int  flipped = 0;
+
+void write_barrier(rib* object,rib* new_ptr) {
+  if (((obj)object->li_next & 2) ^ flipped) return; // source is not black
+  if (~(((obj)new_ptr->li_next & 2) ^ flipped)) return; //dst is black
+  if (((obj)new_ptr->li_next & 1)) return; // dst is grey
+  object->li_next = (void*)((obj)object->li_next | GREY);
+  add_to_list(&grey,object);
+}
 
 void rt_gc() {
   if (grey.start == &grey && ~(flags & GC_STARTED)) {
@@ -657,14 +664,19 @@ void rt_gc() {
     flags &= ~GC_STARTED;
   } else {
     rib* object = grey.start;
-    if (((obj)PTR_1(object) & 2) == 0 && ((obj)(PTR_1(object)->li_next) & 2) ^ flipped) {
+    if (((obj)PTR_1(object) & 1) == 0 && ((obj)(PTR_1(object)->li_next) & 2) ^ flipped) {
       PTR_1(object)->li_next = (void*)((obj)object->li_next | GREY);
       add_to_list(&grey,PTR_1(object));
     }
     
-    if (((obj)PTR_2(object) & 2) == 0 && ((obj)PTR_2(object)->li_next & 2) ^ flipped) {
+    if (((obj)PTR_2(object) & 1) == 0 && ((obj)PTR_2(object)->li_next & 2) ^ flipped) {
       PTR_2(object)->li_next = (void*)((obj)object->li_next | GREY);
       add_to_list(&grey,PTR_2(object));
+    }
+    
+    if (((obj)PTR_3(object) & 1) == 0 && ((obj)PTR_3(object)->li_next & 2) ^ flipped) {
+      PTR_3(object)->li_next = (void*)((obj)object->li_next | GREY);
+      add_to_list(&grey,PTR_3(object));
     }
 
     object->li_next = (void*)((obj)object->li_next & ~GREY);
@@ -1284,8 +1296,11 @@ void run() {
       PRINTLN();
 #endif
       obj x = CAR(stack);
-      ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)))
-          ->fields[0] = x;
+      rib* src = ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)));
+      if (!IS_NUM(x)) {
+          write_barrier(src,(rib*)x);
+      }
+      src->fields[0] = x;
       stack = CDR(stack);
       ADVANCE_PC();
       break;
