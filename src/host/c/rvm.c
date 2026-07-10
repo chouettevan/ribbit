@@ -225,6 +225,11 @@ struct list black;
 struct list grey;
 struct list white;
 #endif
+#ifdef TREADMILL
+#define WRITE_BARRIER(src,old,new) old,write_barrier((rib*)src,(rib*)new);
+#else
+#define WRITE_BARRIER(src,old,new) ;
+#endif
 
 rib *heap_start;
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
@@ -636,6 +641,11 @@ int flags;
 int  flipped = 0;
 
 void write_barrier(rib* object,rib* new_ptr) {
+  if (IS_NUM((obj)new_ptr)) return;
+  if (IS_NUM((obj)object)) {
+        puts("integer object");
+        exit(-1);
+  }
   if (((obj)object->li_next & 2) ^ flipped) return; // source is not black
   if (~(((obj)new_ptr->li_next & 2) ^ flipped)) return; //dst is black
   if (((obj)new_ptr->li_next & 1)) return; // dst is grey
@@ -698,6 +708,10 @@ void rt_gc() {
 }
 
 void add_to_list(struct list* list,rib* object) {
+  if (IS_NUM((obj)object)) {
+    puts("integer added to list");
+    exit(-1);
+  }
   if (object == NULL || list == NULL)
     return;
   if (TR_UNTAG(object->li_next) && TR_UNTAG(object->li_prev)) {
@@ -745,7 +759,7 @@ obj pop() {
 
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
-    if (new.end == NULL) { // list is empty
+    if (new.end == NULL || new.start == &new) { // list is empty
         puts("out of memory");
         exit(-1);
     }
@@ -802,7 +816,9 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   obj old_stack = CDR(stack);
   obj allocated = stack;
 
+  WRITE_BARRIER(allocated,CDR(allocated),TAG(allocated));
   CDR(allocated) = TAG(allocated);
+  WRITE_BARRIER(allocated,TAG(allocated),tag);
   TAG(allocated) = tag;
 
   stack = old_stack;
@@ -815,6 +831,7 @@ rib *alloc_rib2(obj car, obj cdr, obj tag) {
   obj old_stack = CDR(stack);
   obj allocated = stack;
 
+  WRITE_BARRIER(allocated,CDR(allocated),cdr);
   CDR(allocated) = cdr;
 
   stack = old_stack;
@@ -957,8 +974,11 @@ obj prim(int no) {
   {
     obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
     PRIM3();
+    WRITE_BARRIER(new_rib,CAR(new_rib),x);
     CAR(new_rib) = x;
+    WRITE_BARRIER(new_rib,CDR(new_rib),y);
     CDR(new_rib) = y;
+    WRITE_BARRIER(new_rib,TAG(new_rib),z);
     TAG(new_rib) = z;
     push2(new_rib, PAIR_TAG);
     break;
@@ -1016,18 +1036,21 @@ obj prim(int no) {
   case 9: // @@(primitive (%%field0-set! rib x)
   { 
     PRIM2();
+    WRITE_BARRIER(x,CAR(x),y);
     push2(CAR(x) = y, PAIR_TAG);
     break;
   } //)@@
   case 10:  // @@(primitive (%%field1-set! rib x)
   {
     PRIM2();
+    WRITE_BARRIER(x,CDR(x),y);
     push2(CDR(x) = y, PAIR_TAG);
     break;
   } //)@@
   case 11:  // @@(primitive (%%field2-set! rib x)
   {
     PRIM2();
+    WRITE_BARRIER(x,TAG(x),y);
     push2(TAG(x) = y, PAIR_TAG);
     break;
   } // )@@
@@ -1220,6 +1243,7 @@ void run() {
             if (jump) {
               // jump
               pc = get_cont();
+              WRITE_BARRIER(stack,CDR(stack),CAR(pc));
               CDR(stack) = CAR(pc);
             }
             pc = TAG(pc);
@@ -1227,7 +1251,9 @@ void run() {
             num nargs = NUM(pop()); // @@(feature arity-check)@@
             obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
             proc = CDR(s2);
+            WRITE_BARRIER(s2,CDR(s2),CDR(proc));
             CDR(s2) = CDR(proc); // @@(feature flat-closure)@@
+            WRITE_BARRIER(pc,CAR(pc),CAR(proc));
             CAR(pc) = CAR(proc); // save the proc from the mighty gcrvm.c
 
 
@@ -1270,10 +1296,14 @@ void run() {
 
             if (jump) {
               obj k = get_cont();
+              WRITE_BARRIER(c2,CAR(c2),CAR(k));
               CAR(c2) = CAR(k);
+              WRITE_BARRIER(c2,TAG(c2),TAG(k));
               TAG(c2) = TAG(k);
             } else {
+              WRITE_BARRIER(c2,CAR(c2),stack);
               CAR(c2) = stack;
+              WRITE_BARRIER(c2,TAG(c2),TAG(pc));
               TAG(c2) = TAG(pc);
             }
 
@@ -1297,9 +1327,6 @@ void run() {
 #endif
       obj x = CAR(stack);
       rib* src = ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)));
-      if (!IS_NUM(x)) {
-          write_barrier(src,(rib*)x);
-      }
       src->fields[0] = x;
       stack = CDR(stack);
       ADVANCE_PC();
@@ -1395,6 +1422,7 @@ void build_sym_table() {
 }
 
 void set_global(obj c) {
+  WRITE_BARRIER(CAR(symbol_table),CAR(CAR(symbol_table)),c);
   CAR(CAR(symbol_table)) = c;
   symbol_table = CDR(symbol_table);
 }
@@ -1514,6 +1542,7 @@ void setup_stack() {
 
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
+  WRITE_BARRIER(stack,TAG(stack),first);
   TAG(stack) = first;
 
   CAR(first) = TAG_NUM(INSTR_HALT);
