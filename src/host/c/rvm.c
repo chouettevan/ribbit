@@ -226,7 +226,7 @@ struct list grey;
 struct list white;
 #endif
 #ifdef TREADMILL
-#define WRITE_BARRIER(src,old,new) old,write_barrier((rib*)src,(rib*)new);
+#define WRITE_BARRIER(src,old,new) write_barrier((rib*)src,(rib*)new);
 #else
 #define WRITE_BARRIER(src,old,new) ;
 #endif
@@ -397,6 +397,10 @@ void init_heap() {
   black.start = (void*)&black;
   grey.start = (void*)&grey;
   white.start = (void*)&white;
+  white.start = &real_root;
+  real_root.li_prev = &white;
+  real_root.li_next = &white;
+  white.end = &real_root;
 #endif
 
 #ifdef MARK_SWEEP
