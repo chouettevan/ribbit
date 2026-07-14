@@ -395,8 +395,11 @@ void init_heap() {
     add_to_list(&new,start);
   }
   black.start = (void*)&black;
+  black.end = NULL;
   grey.start = (void*)&grey;
+  grey.end = NULL;
   white.start = (void*)&white;
+  white.end = NULL;
   white.start = &real_root;
   real_root.li_prev = &white;
   real_root.li_next = &white;
@@ -629,7 +632,7 @@ void gc() {
 #endif // end of GC algorithms
 #ifdef TREADMILL
 #define GC_STARTED 1
-#define IS_LIST_END(obj) ((void*)obj == &new || (void*)obj == &black || (void*)obj == &grey || (void*)obj == &white)
+#define IS_LIST_END(object) (((obj)object == (obj)&new || (obj)object == (obj)&black || (obj)object == (obj)&grey || (obj)object == (obj)&white))
 #define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~3))
 #define PTR_1(obj) ((rib*)obj->fields[0])
 #define PTR_2(obj) ((rib*)obj->fields[1])
@@ -644,12 +647,13 @@ int free_alloc = 2;
 int flags;
 int  flipped = 0;
 
-void write_barrier(rib* object,rib* new_ptr) {
+static inline void write_barrier(rib* object,rib* new_ptr) {
   if (IS_NUM((obj)new_ptr)) return;
   if (IS_NUM((obj)object)) {
         puts("integer object");
         exit(-1);
   }
+  if (~(flags & GC_STARTED)) return;
   if (((obj)object->li_next & 2) ^ flipped) return; // source is not black
   if (~(((obj)new_ptr->li_next & 2) ^ flipped)) return; //dst is black
   if (((obj)new_ptr->li_next & 1)) return; // dst is grey
@@ -658,7 +662,7 @@ void write_barrier(rib* object,rib* new_ptr) {
 }
 
 void rt_gc() {
-  if (grey.start == &grey && ~(flags & GC_STARTED)) {
+  if (grey.start == &grey && (flags & GC_STARTED )== 0) {
     add_to_list(&grey,root);
     root->li_next = (void*)((obj)root->li_next | GREY);
     flags |= GC_STARTED;
