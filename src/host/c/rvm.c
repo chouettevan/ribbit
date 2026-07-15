@@ -662,7 +662,7 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
 }
 
 void rt_gc() {
-  if (grey.start == &grey && (flags & GC_STARTED )== 0) {
+  if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
     add_to_list(&grey,root);
     root->li_next = (void*)((obj)root->li_next | GREY);
     flags |= GC_STARTED;
@@ -737,7 +737,7 @@ void add_to_list(struct list* list,rib* object) {
   }
   }
   object->li_next = list->start;
-  if (list->start != NULL && list->start != list)
+  if (list->start != NULL && list->start != (void*)list)
     list->start->li_prev = object;
   else {
     list->end = object;
@@ -748,7 +748,7 @@ void add_to_list(struct list* list,rib* object) {
 
 rib* remove_from_list(struct list* list) {
   if (list == NULL) return NULL;
-  if (list->start == list) {
+  if (list->start == (void*)list) {
     list->end = NULL;
     return NULL;
   }
@@ -767,7 +767,7 @@ obj pop() {
 
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
-    if (new.end == NULL || new.start == &new) { // list is empty
+    if (new.end == NULL || new.start == (void*)&new) { // list is empty
         puts("out of memory");
         exit(-1);
     }
