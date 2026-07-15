@@ -4,4 +4,4 @@ if [ $kernel -ne 0 ] # checks wether -f+ kernel was supplied
 then
   exec $(echo "$0" | sed 's/mk-exe$/mk-kernel/') "$1" "$2"
 fi
-gcc -O3 -o "$2" "$1"
+gcc -O3 -g -o "$2" "$1"
