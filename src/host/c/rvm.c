@@ -219,7 +219,7 @@ struct list {
   rib* start;
   rib* end;
 };
-void add_to_list(struct list* list,rib* obj);
+static inline void add_to_list(struct list* list,rib* obj);
 struct list new;
 struct list black;
 struct list grey;
@@ -715,7 +715,7 @@ void rt_gc() {
   }
 }
 
-void add_to_list(struct list* list,rib* object) {
+static inline void add_to_list(struct list* list,rib* object) {
   if (IS_NUM((obj)object)) {
     puts("integer added to list");
     exit(-1);
