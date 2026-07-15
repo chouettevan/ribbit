@@ -739,7 +739,13 @@ static inline void add_to_list(struct list* list,rib* object) {
     TR_UNTAG(object->li_next)->li_prev = object->li_prev;
   } else {
     ((struct list*)TR_UNTAG(object->li_next))->end = object->li_prev;
-    object->li_prev->li_next = object->li_next;  
+    if (!IS_LIST_END(TR_UNTAG(object->li_prev))) {
+        object->li_prev->li_next = object->li_next;  
+    } else {
+       struct list* li = (void*)TR_UNTAG(object->li_next);
+       li->start = (void*)li; 
+       li->end = NULL;
+    }
   }
   if (!IS_LIST_END(object->li_prev)) {
     object->li_prev->li_next = object->li_next;
