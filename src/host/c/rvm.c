@@ -674,15 +674,23 @@ void rt_gc() {
 
 
   if (grey.start == (void*)&grey) {
-    rib* start = new.start;
+    puts("collection");
+    struct list backup = new;
     new.start = white.start;
-    white.end->li_next = new.start;
+    white.start->li_prev = (void*)&new;
+
+    white.end->li_next = backup.start;
+    backup.start->li_prev = white.end;
+
     white.end = NULL;
     white.start = (void*)&white;
     flipped = 2 & ~(flipped);
-    struct list backup = black;
     white.start = black.start;
     white.end = black.end;
+    black.start->li_prev = (void*)&white;
+    black.end->li_next = (void*)&white;
+    black.start = (void*)&black;
+    black.end = NULL;
     flags &= ~GC_STARTED;
   } else {
     rib* object = grey.start;
