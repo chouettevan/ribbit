@@ -227,8 +227,12 @@ struct list white;
 #endif
 #ifdef TREADMILL
 #define WRITE_BARRIER(src,old,new) write_barrier((rib*)src,(rib*)new);
+#define STACK_CHANGE_BARRIER(new_stack) \
+    WRITE_BARRIER(root,CAR(root),new_stack); \
+    CAR(root) = new_stack; 
 #else
 #define WRITE_BARRIER(src,old,new) ;
+#define STACK_CHANGE_BARRIER(new_stack) ;
 #endif
 
 rib *heap_start;
@@ -761,6 +765,7 @@ rib* remove_from_list(struct list* list) {
 
 obj pop() {
   obj x = CAR(stack);
+  STACK_CHANGE_BARRIER(CDR(stack));
   stack = CDR(stack);
   return x;
 }
@@ -776,6 +781,7 @@ void push2(obj car, obj tag) {
     result->fields[0] = car;
     result->fields[1] = stack;
     result->fields[2] = tag;
+    STACK_CHANGE_BARRIER(TAG_RIB(result));
     stack = TAG_RIB(result);
     if (free_alloc > 0) {
         free_alloc--;
@@ -834,6 +840,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   WRITE_BARRIER(allocated,TAG(allocated),tag);
   TAG(allocated) = tag;
 
+  STACK_CHANGE_BARRIER(old_stack);
   stack = old_stack;
 
   return RIB(allocated);
@@ -847,6 +854,7 @@ rib *alloc_rib2(obj car, obj cdr, obj tag) {
   WRITE_BARRIER(allocated,CDR(allocated),cdr);
   CDR(allocated) = cdr;
 
+  STACK_CHANGE_BARRIER(old_stack);
   stack = old_stack;
 
   return RIB(allocated);
@@ -1320,6 +1328,7 @@ void run() {
               TAG(c2) = TAG(pc);
             }
 
+            STACK_CHANGE_BARRIER(s2);
             stack = s2;
 
             obj new_pc = CAR(pc);
@@ -1341,6 +1350,7 @@ void run() {
       obj x = CAR(stack);
       rib* src = ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)));
       src->fields[0] = x;
+      STACK_CHANGE_BARRIER(CDR(stack));
       stack = CDR(stack);
       ADVANCE_PC();
       break;
