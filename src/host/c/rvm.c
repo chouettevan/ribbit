@@ -709,16 +709,16 @@ void rt_gc() {
     flags &= ~GC_STARTED;
   } else {
     rib* object = grey.start;
-    if (((obj)PTR_1(object) & 1) == 0 && IS_WHITE(PTR_1(object)->li_next)) {
+    if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
       TAG_GREY(PTR_1(object)->li_next);
       add_to_list(&grey,PTR_1(object));
     }
-    if (((obj)PTR_2(object) & 1) == 0 && IS_WHITE(PTR_2(object)->li_next)) {
+    if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
       TAG_GREY(PTR_2(object)->li_next);
       add_to_list(&grey,PTR_2(object));
     }
 
-    if (((obj)PTR_3(object) & 1) == 0 && IS_WHITE(PTR_3(object)->li_next)) {
+    if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
       TAG_GREY(PTR_3(object)->li_next);
       add_to_list(&grey,PTR_3(object));
     }
