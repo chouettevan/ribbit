@@ -401,8 +401,8 @@ void init_heap() {
   white.start = (void*)&white;
   white.end = NULL;
   white.start = &real_root;
-  real_root.li_prev = &white;
-  real_root.li_next = &white;
+  real_root.li_prev = (void*)&white;
+  real_root.li_next = (void*)&white;
   white.end = &real_root;
 #endif
 
