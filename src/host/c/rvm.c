@@ -641,6 +641,13 @@ void gc() {
 #define PTR_1(obj) ((rib*)obj->fields[0])
 #define PTR_2(obj) ((rib*)obj->fields[1])
 #define PTR_3(obj) ((rib*)obj->fields[2])
+#define TAG_WHITE(x) tag((obj)x,1,flipped)
+#define TAG_BLACK(x) tag((obj)x,1,1 - flipped)
+#define TAG_GREY(x) tag((obj)x,0,1)
+#define UNTAG_GREY(x) tag((obj)x,0,0)
+#define IS_GREY(x) ((obj)x & GREY)
+#define IS_BLACK(x) ((~IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
+#define IS_WHITE(x) ~IS_BLACK(x)
 #define TAG_BITS 3
 
 #define GREY 1
@@ -651,24 +658,32 @@ int free_alloc = 2;
 int flags;
 int  flipped = 0;
 
+static inline long tag(obj input,obj offset,char value) {
+    if (value) {
+        input |= (1 << offset);
+    } else {
+        input &= ~(1 << offset);
+    }
+    return input;
+}
+
 static inline void write_barrier(rib* object,rib* new_ptr) {
   if (IS_NUM((obj)new_ptr)) return;
   if (IS_NUM((obj)object)) {
         puts("integer object");
         exit(-1);
   }
-  if (~(flags & GC_STARTED)) return;
-  if (((obj)object->li_next & 2) ^ flipped) return; // source is not black
-  if (~(((obj)new_ptr->li_next & 2) ^ flipped)) return; //dst is black
-  if (((obj)new_ptr->li_next & 1)) return; // dst is grey
-  object->li_next = (void*)((obj)object->li_next | GREY);
-  add_to_list(&grey,object);
+  if (!IS_BLACK(object)) return; // source is not black
+  if (!IS_WHITE(new_ptr)) return; //dst is black
+  TAG_GREY(new_ptr);
+  add_to_list(&grey,new_ptr);
 }
+
 
 void rt_gc() {
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
     add_to_list(&grey,root);
-    root->li_next = (void*)((obj)root->li_next | GREY);
+    TAG_GREY(root->li_next);
     flags |= GC_STARTED;
   }
 
@@ -684,7 +699,7 @@ void rt_gc() {
 
     white.end = NULL;
     white.start = (void*)&white;
-    flipped = 2 & ~(flipped);
+    flipped = 1 - flipped;
     white.start = black.start;
     white.end = black.end;
     black.start->li_prev = (void*)&white;
@@ -694,37 +709,28 @@ void rt_gc() {
     flags &= ~GC_STARTED;
   } else {
     rib* object = grey.start;
-    if (((obj)PTR_1(object) & 1) == 0 && ((obj)(PTR_1(object)->li_next) & 2) ^ flipped) {
-      PTR_1(object)->li_next = (void*)((obj)object->li_next | GREY);
+    if (((obj)PTR_1(object) & 1) == 0 && IS_WHITE(PTR_1(object)->li_next)) {
+      TAG_GREY(PTR_1(object)->li_next);
       add_to_list(&grey,PTR_1(object));
     }
-    
-    if (((obj)PTR_2(object) & 1) == 0 && ((obj)PTR_2(object)->li_next & 2) ^ flipped) {
-      PTR_2(object)->li_next = (void*)((obj)object->li_next | GREY);
+    if (((obj)PTR_2(object) & 1) == 0 && IS_WHITE(PTR_2(object)->li_next)) {
+      TAG_GREY(PTR_2(object)->li_next);
       add_to_list(&grey,PTR_2(object));
     }
-    
-    if (((obj)PTR_3(object) & 1) == 0 && ((obj)PTR_3(object)->li_next & 2) ^ flipped) {
-      PTR_3(object)->li_next = (void*)((obj)object->li_next | GREY);
+
+    if (((obj)PTR_3(object) & 1) == 0 && IS_WHITE(PTR_3(object)->li_next)) {
+      TAG_GREY(PTR_3(object)->li_next);
       add_to_list(&grey,PTR_3(object));
     }
+    
 
-    object->li_next = (void*)((obj)object->li_next & ~GREY);
+    UNTAG_GREY(object->li_next);
+    TAG_BLACK(object->li_next);
     add_to_list(&black,object);
-
-    if (flipped) {
-      object->li_next = (void*)((obj)object->li_next | 2);
-    } else {
-      object->li_next = (void*)((obj)object->li_next & ~2);
-    }
   }
 
   rib* object = new.start;
-  if (flipped) {
-    object->li_next = (void*)((obj)object->li_next & ~2);
-  } else {
-    object->li_next = (void*)((obj)object->li_next | 2);
-  }
+  TAG_WHITE(object->li_next);
 }
 
 static inline void add_to_list(struct list* list,rib* object) {
