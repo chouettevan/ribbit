@@ -773,15 +773,20 @@ void push2(obj car, obj tag) {
     }
     rib* result = new.start;
     add_to_list(&white,result);
+    result->fields[0] = car;
+    result->fields[1] = stack;
+    result->fields[2] = tag;
+    stack = TAG_RIB(result);
     if (free_alloc > 0) {
         free_alloc--;
     } else {
         rt_gc();
     }
-    result->fields[0] = car;
-    result->fields[1] = stack;
-    result->fields[2] = tag;
-    stack = TAG_RIB(result);
+    if (free_alloc > 0) {
+        free_alloc--;
+    } else {
+        rt_gc();
+    }
 #else
 #ifdef MARK_SWEEP
   obj tmp = *alloc; // next available slot in freelist
