@@ -669,7 +669,7 @@ void rt_gc() {
   }
 
 
-  if (grey.start == &grey) {
+  if (grey.start == (void*)&grey) {
     rib* start = new.start;
     new.start = white.start;
     white.end->li_next = new.start;
