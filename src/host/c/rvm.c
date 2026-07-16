@@ -230,9 +230,17 @@ struct list white;
 #define STACK_CHANGE_BARRIER(new_stack) \
     WRITE_BARRIER(root,CAR(root),new_stack); \
     CAR(root) = new_stack; 
+#define PC_CHANGE_BARRIER(new_pc) \
+    WRITE_BARRIER(root,CDR(root),new_pc); \
+    CDR(root) = new_pc; 
+#define FALSE_CHANGE_BARRIER(new_false) \
+    WRITE_BARRIER(root,TAG(root),new_false); \
+    TAG(root) = new_false;
 #else
 #define WRITE_BARRIER(src,old,new) ;
 #define STACK_CHANGE_BARRIER(new_stack) ;
+#define PC_CHANGE_BARRIER(new_pc) ;
+#define FALSE_CHANGE_BARRIER(new_false) ;
 #endif
 
 rib *heap_start;
@@ -387,9 +395,9 @@ void init_heap() {
   }
 #endif
 #ifdef TREADMILL
-  real_root.fields[0] = (obj)&stack;
-  real_root.fields[1] = (obj)&FALSE;
-  real_root.fields[2] = (obj)&pc;
+  real_root.fields[0] = (obj)stack;
+  real_root.fields[1] = (obj)FALSE;
+  real_root.fields[2] = (obj)pc;
   heap_start = malloc(sizeof(obj) * MAX_NB_OBJS*5);
   if ((obj)heap_start & 7) {
       puts("unaligned heap start");
@@ -1252,6 +1260,7 @@ void show_stack(){
 void run() {
 #define ADVANCE_PC()                                                           \
   do {                                                                         \
+    PC_CHANGE_BARRIER(TAG(pc)) \
     pc = TAG(pc);                                                              \
   } while (0)
   while (1) {
@@ -1283,10 +1292,13 @@ void run() {
 
             if (jump) {
               // jump
-              pc = get_cont();
+              obj cont = get_cont();
+              PC_CHANGE_BARRIER(cont);
+              pc = cont;
               WRITE_BARRIER(stack,CDR(stack),CAR(pc));
               CDR(stack) = CAR(pc);
             }
+            PC_CHANGE_BARRIER(TAG(pc));
             pc = TAG(pc);
           } else {
             num nargs = NUM(pop()); // @@(feature arity-check)@@
@@ -1353,6 +1365,7 @@ void run() {
 
             obj new_pc = CAR(pc);
             CAR(pc) = TAG_NUM(instr);
+            PC_CHANGE_BARRIER(TAG(new_pc));
             pc = TAG(new_pc);
           }
           break;
@@ -1406,8 +1419,10 @@ void run() {
 
       obj p = pop();
       if (p != FALSE) {
+        PC_CHANGE_BARRIER(CDR(pc));
         pc = CDR(pc);
       } else {
+        PC_CHANGE_BARRIER(TAG(pc));
         pc = TAG(pc);
       }
       break;
@@ -1520,6 +1535,7 @@ void decode() {
     TOS = TAG_RIB(c);
   }
 
+  PC_CHANGE_BARRIER(TAG(CAR(n)));
   pc = TAG(CAR(n));
 }
 // )@@
@@ -1575,6 +1591,7 @@ void decode() {
     TOS = TAG_RIB(c);
   }
 
+  PC_CHANGE_BARRIER(TAG(CAR(n)));
   pc = TAG(CAR(n));
 }
 // )@@
@@ -1602,9 +1619,11 @@ void init() {
   decompress(); // @@(feature compression/lzss/2b)@@
   init_heap();
 
-  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+  obj new_false = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             SINGLETON_TAG));
+  FALSE_CHANGE_BARRIER(new_false);
+  FALSE = new_false;
 
   build_sym_table();
   decode();
