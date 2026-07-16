@@ -697,7 +697,6 @@ void rt_gc() {
 
 
   if (grey.start == (void*)&grey) {
-    puts("collection");
     struct list backup = new;
     new.start = white.start;
     white.start->li_prev = (void*)&new;
