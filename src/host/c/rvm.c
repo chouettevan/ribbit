@@ -403,6 +403,8 @@ void init_heap() {
       puts("unaligned heap start");
       exit(-1);
   }
+  new.start = (void*)&new;
+  new.end = NULL;
   for  (rib* start = heap_start;start < heap_start + MAX_NB_OBJS;start++) {
     add_to_list(&new,start);
   }
@@ -743,6 +745,10 @@ void rt_gc() {
 static inline void add_to_list(struct list* list,rib* object) {
   if (IS_NUM((obj)object)) {
     puts("integer added to list");
+    exit(-1);
+  }
+  if (IS_LIST_END(object)) {
+    puts("list added to list");
     exit(-1);
   }
   if (object == NULL || list == NULL)
