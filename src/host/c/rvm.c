@@ -806,8 +806,13 @@ obj pop() {
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
     if (new.end == NULL || new.start == (void*)&new) { // list is empty
-        puts("out of memory");
-        exit(-1);
+        for (int i=0; i < MAX_NB_OBJS && new.end == NULL;i++) {
+           rt_gc(); 
+        }
+        if (new.end == NULL) {
+            puts("out of memory");
+            exit(-1);
+        }
     }
     rib* result = new.start;
     add_to_list(&white,result);
