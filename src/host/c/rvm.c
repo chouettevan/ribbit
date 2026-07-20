@@ -656,8 +656,8 @@ void gc() {
 #define TAG_GREY(x) x = (rib*)tag((obj)x,0,1)
 #define UNTAG_GREY(x) x = (rib*)tag((obj)x,0,0)
 #define IS_GREY(x) ((obj)x & GREY)
-#define IS_BLACK(x) ((~IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
-#define IS_WHITE(x) ~IS_BLACK(x)
+#define IS_BLACK(x) ((!IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
+#define IS_WHITE(x) !IS_BLACK(x)
 #define TAG_BITS 3
 
 #define GREY 1
