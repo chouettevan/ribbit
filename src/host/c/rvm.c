@@ -663,7 +663,7 @@ void gc() {
 #define GREY 1
 #define BLACK_WHITE 2
 #define WHITE_BLACK 0
-int free_alloc = 2;
+int free_alloc = 5;
 
 int flags;
 int  flipped = 0;
@@ -758,6 +758,7 @@ void rt_gc() {
     black.start = (void*)&black;
     black.end = NULL;
     flags &= ~GC_STARTED;
+    free_alloc = 5;
   } else {
     rib* object = grey.start;
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
