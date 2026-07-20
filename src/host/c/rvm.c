@@ -689,6 +689,48 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   add_to_list(&grey,new_ptr);
 }
 
+void check_duplicates(struct list* li) {
+    rib *out = li->start;
+    rib* in = li->start;
+    while (out != (void*)li) {
+        in = out;
+        while (in != (void*)li) {
+            in = in->li_next;
+            if (out == in) {
+                puts("found duplicate");
+                __builtin_trap();
+            }
+        }
+        out = out->li_next;
+    }
+}
+
+void check_tags() {
+    rib* white_scan = white.start;
+    while (white_scan != (void*)&white) {
+        if (!IS_WHITE(white_scan)) {
+            puts("white list tagging error");
+            __builtin_trap();
+        }
+    }
+    rib* black_scan = black.start;
+    while (black_scan != (void*)&black) {
+        if (!IS_BLACK(black_scan)) {
+            puts("black list tagging error");
+            __builtin_trap();
+        }
+    }
+    rib* grey_scan = grey.start;
+    while (grey_scan != (void*)&grey) {
+        if (!IS_GREY(grey_scan)) {
+            puts("grey list tagging error");
+            __builtin_trap();
+        }
+    }
+}
+void check_status() {
+    check_tags();
+}
 
 void rt_gc() {
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
