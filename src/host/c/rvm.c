@@ -656,14 +656,14 @@ void gc() {
 #define TAG_GREY(x) tag((obj)x,0,1)
 #define UNTAG_GREY(x) tag((obj)x,0,0)
 #define IS_GREY(x) ((obj)x & GREY)
-#define IS_BLACK(x) ((~IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
-#define IS_WHITE(x) ~IS_BLACK(x)
+#define IS_BLACK(x) ((!IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
+#define IS_WHITE(x) !IS_BLACK(x)
 #define TAG_BITS 3
 
 #define GREY 1
 #define BLACK_WHITE 2
 #define WHITE_BLACK 0
-int free_alloc = 5;
+int free_alloc = 2;
 
 int flags;
 int  flipped = 0;
@@ -716,7 +716,6 @@ void rt_gc() {
     black.start = (void*)&black;
     black.end = NULL;
     flags &= ~GC_STARTED;
-    free_alloc = 5;
   } else {
     rib* object = grey.start;
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
