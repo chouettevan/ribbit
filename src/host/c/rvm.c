@@ -656,8 +656,8 @@ void gc() {
 #define TAG_GREY(x) tag((obj)x,0,1)
 #define UNTAG_GREY(x) tag((obj)x,0,0)
 #define IS_GREY(x) ((obj)x & GREY)
-#define IS_BLACK(x) ((!IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
-#define IS_WHITE(x) !IS_BLACK(x)
+#define IS_BLACK(x) ((~IS_GREY(x)) & (((obj)x & 2) ^ (flipped << 1)))
+#define IS_WHITE(x) ~IS_BLACK(x)
 #define TAG_BITS 3
 
 #define GREY 1
@@ -806,13 +806,8 @@ obj pop() {
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
     if (new.end == NULL || new.start == (void*)&new) { // list is empty
-        for (int i=0; i < MAX_NB_OBJS && new.end == NULL;i++) {
-           rt_gc(); 
-        }
-        if (new.end == NULL) {
-            puts("out of memory");
-            exit(-1);
-        }
+        puts("out of memory");
+        exit(-1);
     }
     rib* result = new.start;
     add_to_list(&white,result);
