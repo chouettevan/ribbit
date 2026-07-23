@@ -647,14 +647,16 @@ void gc() {
 #ifdef TREADMILL
 #define GC_STARTED 1
 #define IS_LIST_END(object) (((obj)object == (obj)&new || (obj)object == (obj)&black || (obj)object == (obj)&grey || (obj)object == (obj)&white))
-#define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~3))
+#define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~7))
 #define PTR_1(obj) ((rib*)obj->fields[0])
 #define PTR_2(obj) ((rib*)obj->fields[1])
 #define PTR_3(obj) ((rib*)obj->fields[2])
-#define TAG_WHITE(x) (rib*)tagp((obj) x,1,flipped)
-#define TAG_BLACK(x) (rib*)tagp((obj)x,1,1 - flipped)
+#define TG_WHITE(x) (rib*)tagp((obj) x,1,flipped)
+#define TG_BLACK(x) (rib*)tagp((obj)x,1,1 - flipped)
 #define TAG_GREY(x) (rib*)tagp((obj)x,0,1)
 #define UNTAG_GREY(x) (rib*)tagp((obj)x,0,0)
+#define TAG_WHITE(x) TG_WHITE(UNTAG_GREY(x))
+#define TAG_BLACK(x) TG_BLACK(UNTAG_GREY(x))
 #define IS_GREY(x) is_grey((obj)x)
 #define IS_BLACK(x) is_black((obj)x)
 #define IS_WHITE(x) is_white((obj)x)
@@ -751,7 +753,8 @@ void rt_gc() {
 
 }
 
-static inline void add_to_list(struct list* list,rib* object) {
+static inline void add_to_list(struct list* list,rib* tagged_object) {
+  rib* object = TR_UNTAG(tagged_object);
   if (IS_NUM((obj)object)) {
     puts("integer added to list");
     exit(-1);
@@ -782,7 +785,15 @@ static inline void add_to_list(struct list* list,rib* object) {
     }
   }
   }
-  object->li_next = list->start;
+  if (list == &grey) {
+    object->li_next = TAG_GREY(list->start);
+  } else if (list == &black) {
+    object->li_next = TAG_BLACK(list->start);
+  } else if (list == &white) {
+    object->li_next = TAG_WHITE(list->start);
+  } else {
+    object->li_next = list->start;
+  }
   if (list->start != NULL && list->start != (void*)list)
     list->start->li_prev = object;
   else {
@@ -792,17 +803,6 @@ static inline void add_to_list(struct list* list,rib* object) {
   object->li_prev = (void*)list;
 }
 
-rib* remove_from_list(struct list* list) {
-  if (list == NULL) return NULL;
-  if (list->start == (void*)list) {
-    list->end = NULL;
-    return NULL;
-  }
-  rib* object = list->start;
-  list->start = object->li_next;
-  TR_UNTAG(object->li_next)->li_prev = NULL;
-  return object;
-}
 #endif
 
 obj pop() {
