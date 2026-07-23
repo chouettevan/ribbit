@@ -651,10 +651,10 @@ void gc() {
 #define PTR_1(obj) ((rib*)obj->fields[0])
 #define PTR_2(obj) ((rib*)obj->fields[1])
 #define PTR_3(obj) ((rib*)obj->fields[2])
-#define TAG_WHITE(x) (rib*)tag((obj) x,1,flipped)
-#define TAG_BLACK(x) (rib*)tag((obj)x,1,1 - flipped)
-#define TAG_GREY(x) (rib*)tag((obj)x,0,1)
-#define UNTAG_GREY(x) (rib*)tag((obj)x,0,0)
+#define TAG_WHITE(x) (rib*)tagp((obj) x,1,flipped)
+#define TAG_BLACK(x) (rib*)tagp((obj)x,1,1 - flipped)
+#define TAG_GREY(x) (rib*)tagp((obj)x,0,1)
+#define UNTAG_GREY(x) (rib*)tagp((obj)x,0,0)
 #define IS_GREY(x) is_grey((obj)x)
 #define IS_BLACK(x) is_black((obj)x)
 #define IS_WHITE(x) is_white((obj)x)
@@ -678,7 +678,7 @@ static inline int is_white(obj x) {
     return !is_grey(x) && !is_black(x);
 }
 
-static inline long tag(obj input,obj offset,char value) {
+static inline long tagp(obj input,obj offset,char value) {
     if (value) {
         input |= (1 << offset);
     } else {
