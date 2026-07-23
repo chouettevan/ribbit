@@ -697,7 +697,7 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   }
   if (!IS_BLACK(object)) return; // source is not black
   if (!IS_WHITE(new_ptr)) return; //dst is black
-  new_ptr = TAG_GREY(new_ptr);
+  new_ptr->li_next = TAG_GREY(new_ptr->li_next);
   add_to_list(&grey,new_ptr);
 }
 
@@ -824,7 +824,7 @@ void push2(obj car, obj tag) {
         }
     }
     rib* result = new.start;
-    result = TAG_WHITE(result);
+    result->li_next = TAG_WHITE(result->li_next);
     add_to_list(&white,result);
     result->fields[0] = car;
     result->fields[1] = stack;
