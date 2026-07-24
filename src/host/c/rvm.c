@@ -220,6 +220,7 @@ struct list {
   rib* end;
 };
 static inline void add_to_list(struct list* list,rib* obj);
+static inline void write_barrier(rib* object,rib* new_ptr);
 struct list new;
 struct list black;
 struct list grey;
@@ -436,6 +437,7 @@ void init_heap() {
   alloc = heap_bot;
   alloc_limit = heap_mid;
 #endif
+  STACK_CHANGE_BARRIER(NUM_0);
   stack = NUM_0;
 }
 
@@ -716,7 +718,7 @@ void rt_gc() {
         new.start = white.start;
         white.start->li_prev = (void*)&new;
 
-        white.end->li_next = backup.start;
+        white.end->li_next = (void*)((obj)backup.start | ((obj)white.end->li_next & 3));
         backup.start->li_prev = white.end;
 
         white.end = NULL;
@@ -726,7 +728,7 @@ void rt_gc() {
     white.start = black.start;
     white.end = black.end;
     black.start->li_prev = (void*)&white;
-    black.end->li_next = (void*)&white;
+    black.end->li_next = (void*)((obj)&white | ((obj)black.end->li_next & 3));
     black.start = (void*)&black;
     black.end = NULL;
     flags &= ~GC_STARTED;
@@ -747,7 +749,7 @@ void rt_gc() {
     }
     
 
-    object->li_next = TAG_BLACK(UNTAG_GREY(object->li_next));
+    object->li_next = TAG_BLACK(object->li_next);
     add_to_list(&black,object);
   }
 
@@ -755,13 +757,27 @@ void rt_gc() {
 
 static inline void add_to_list(struct list* list,rib* tagged_object) {
   rib* object = TR_UNTAG(tagged_object);
+  if (object != tagged_object) {
+        puts("tagging issue");
+        __builtin_trap();
+  }
   if (IS_NUM((obj)object)) {
     puts("integer added to list");
-    exit(-1);
+    __builtin_trap();
   }
   if (IS_LIST_END(object)) {
-    puts("list added to list");
-    exit(-1);
+      puts("list added to list");
+      __builtin_trap();
+  }
+  if (IS_BLACK(object->li_next)) {
+      for (int i=0;i < 3;i++) {
+        rib* field = (rib*)object->fields[i];
+        if (IS_NUM((obj)field)) continue;
+        if (IS_WHITE(field->li_next)) {
+            puts("incorrect colors");
+            __builtin_trap();
+        }
+      }
   }
   if (object == NULL || list == NULL)
     return;
@@ -826,8 +842,11 @@ void push2(obj car, obj tag) {
     rib* result = new.start;
     result->li_next = TAG_WHITE(result->li_next);
     add_to_list(&white,result);
+    WRITE_BARRIER(result,result->fields[0],car);
     result->fields[0] = car;
+    WRITE_BARRIER(result,result->fields[1],tag);
     result->fields[1] = stack;
+    WRITE_BARRIER(result,result->fields[2],tag);
     result->fields[2] = tag;
     STACK_CHANGE_BARRIER(TAG_RIB(result));
     stack = TAG_RIB(result);
@@ -1397,6 +1416,7 @@ void run() {
 #endif
       obj x = CAR(stack);
       rib* src = ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)));
+      WRITE_BARRIER(src,src->fields[0],x);
       src->fields[0] = x;
       STACK_CHANGE_BARRIER(CDR(stack));
       stack = CDR(stack);
@@ -1546,6 +1566,7 @@ void decode() {
     //fflush(stdout); // @@(feature debug)@@
 
     rib *c = alloc_rib(TAG_NUM(i), n, NUM_0);
+    WRITE_BARRIER(c,c->fields[2],TOS);
     c->fields[2] = TOS;
     TOS = TAG_RIB(c);
   }
@@ -1602,6 +1623,7 @@ void decode() {
     }
 
     rib *c = alloc_rib(TAG_NUM(op), n, 0);
+    WRITE_BARRIER(c,c->fields[2],TOS);
     c->fields[2] = TOS;
     TOS = TAG_RIB(c);
   }
