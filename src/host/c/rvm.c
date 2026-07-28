@@ -221,6 +221,7 @@ struct list {
 };
 static inline void add_to_list(struct list* list,rib* obj);
 static inline void write_barrier(rib* object,rib* new_ptr);
+int do_not_collect = 0;
 struct list new;
 struct list black;
 struct list grey;
@@ -704,6 +705,7 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
 }
 
 void rt_gc() {
+  if (do_not_collect) return;
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
     add_to_list(&grey,root);
     root->li_next = TAG_GREY(root->li_next);
@@ -1651,6 +1653,9 @@ void init() {
 #endif
   decompress(); // @@(feature compression/lzss/2b)@@
   init_heap();
+#ifdef TREADMILL
+  do_not_collect = 1;
+#endif
   obj new_false = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             SINGLETON_TAG));
@@ -1659,6 +1664,9 @@ void init() {
 
   build_sym_table();
   decode();
+#ifdef TREADMILL
+  do_not_collect = 0;
+#endif
 
   set_global(
       TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG))); /* primitive 0 */
