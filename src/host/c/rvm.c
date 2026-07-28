@@ -697,12 +697,11 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
         puts("integer object");
         exit(-1);
   }
-  if (!IS_BLACK(object)) return; // source is not black
-  if (!IS_WHITE(new_ptr)) return; //dst is black
+  if (!IS_BLACK(object->li_next)) return; // source is not black
+  if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
   new_ptr->li_next = TAG_GREY(new_ptr->li_next);
   add_to_list(&grey,new_ptr);
 }
-
 
 void rt_gc() {
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
@@ -842,11 +841,8 @@ void push2(obj car, obj tag) {
     rib* result = new.start;
     result->li_next = TAG_WHITE(result->li_next);
     add_to_list(&white,result);
-    WRITE_BARRIER(result,result->fields[0],car);
     result->fields[0] = car;
-    WRITE_BARRIER(result,result->fields[1],tag);
     result->fields[1] = stack;
-    WRITE_BARRIER(result,result->fields[2],tag);
     result->fields[2] = tag;
     STACK_CHANGE_BARRIER(TAG_RIB(result));
     stack = TAG_RIB(result);
@@ -1655,7 +1651,6 @@ void init() {
 #endif
   decompress(); // @@(feature compression/lzss/2b)@@
   init_heap();
-
   obj new_false = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             SINGLETON_TAG));
@@ -1672,7 +1667,6 @@ void init() {
   set_global(NIL);
 
   setup_stack();
-
   run();
 }
 
