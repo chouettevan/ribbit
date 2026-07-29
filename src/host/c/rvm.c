@@ -5,7 +5,6 @@
 
 // @@(location import)@@
 
-
 // @@(feature debug (use debug-print debug-phases)
 #define DEBUG
 // )@@
@@ -703,7 +702,6 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   new_ptr->li_next = TAG_GREY(new_ptr->li_next);
   add_to_list(&grey,new_ptr);
 }
-
 void rt_gc() {
   if (do_not_collect) return;
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
@@ -1087,7 +1085,9 @@ obj prim(int no) {
   {
     obj x = CAR(TOS);
     obj y = CDR(stack);
-    TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
+    obj z = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
+    WRITE_BARRIER(stack,CAR(stack),z);
+    TOS = z;
     break;
   } //)@@
   case 5: // @@(primitive (%%rib? rib) (use bool2scm)
@@ -1363,6 +1363,7 @@ void run() {
             if (vari){
                 obj rest = NIL;
                 for(int i = 0; i < nargs; ++i){
+                    WRITE_BARRIER(TRUE,TEMP1,s2);
                     TEMP1 = s2;
                     rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
                     s2=TEMP1;
@@ -1566,6 +1567,7 @@ void decode() {
     rib *c = alloc_rib(TAG_NUM(i), n, NUM_0);
     WRITE_BARRIER(c,c->fields[2],TOS);
     c->fields[2] = TOS;
+    WRITE_BARRIER(stack,TOS,TAG_RIB(c));
     TOS = TAG_RIB(c);
   }
 
@@ -1623,6 +1625,7 @@ void decode() {
     rib *c = alloc_rib(TAG_NUM(op), n, 0);
     WRITE_BARRIER(c,c->fields[2],TOS);
     c->fields[2] = TOS;
+    WRITE_BARRIER(stack,TOS,TAG_RIB(c));
     TOS = TAG_RIB(c);
   }
 
@@ -1640,8 +1643,11 @@ void setup_stack() {
   WRITE_BARRIER(stack,TAG(stack),first);
   TAG(stack) = first;
 
+  WRITE_BARRIER(first,CAR(first),TAG_NUM(INSTR_HALT));
   CAR(first) = TAG_NUM(INSTR_HALT);
+  WRITE_BARRIER(first,CDR(first),NUM_0);
   CDR(first) = NUM_0;
+  WRITE_BARRIER(first,TAG(first),PAIR_TAG);
   TAG(first) = PAIR_TAG;
 }
 
