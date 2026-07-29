@@ -407,6 +407,11 @@ void init_heap() {
   new.start = (void*)&new;
   new.end = NULL;
   for  (rib* start = heap_start;start < heap_start + MAX_NB_OBJS;start++) {
+    start->li_next = NULL;
+    start->li_prev = NULL;
+    start->fields[0] = 1;
+    start->fields[1] = 1;
+    start->fields[2] = 1;
     add_to_list(&new,start);
   }
   black.start = (void*)&black;
