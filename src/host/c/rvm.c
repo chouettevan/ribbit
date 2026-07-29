@@ -761,6 +761,7 @@ void rt_gc() {
 
 static inline void add_to_list(struct list* list,rib* tagged_object) {
   rib* object = TR_UNTAG(tagged_object);
+  if ((obj)object % 8 != 0) __builtin_trap();
   if (object != tagged_object) {
         puts("tagging issue");
         __builtin_trap();
