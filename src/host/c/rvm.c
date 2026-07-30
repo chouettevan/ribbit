@@ -704,14 +704,12 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   }
   if (!IS_BLACK(object->li_next)) return; // source is not black
   if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
-  new_ptr->li_next = TAG_GREY(new_ptr->li_next);
   add_to_list(&grey,new_ptr);
 }
 void rt_gc() {
   if (do_not_collect) return;
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
     add_to_list(&grey,root);
-    root->li_next = TAG_GREY(root->li_next);
     flags |= GC_STARTED;
   }
 
@@ -739,21 +737,17 @@ void rt_gc() {
   } else {
     rib* object = grey.start;
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
-      PTR_1(object)->li_next = TAG_GREY(PTR_1(object)->li_next);
       add_to_list(&grey,PTR_1(object));
     }
     if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
-      PTR_2(object)->li_next = TAG_GREY(PTR_2(object)->li_next);
       add_to_list(&grey,PTR_2(object));
     }
 
     if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
-      PTR_3(object)->li_next = TAG_GREY(PTR_3(object)->li_next);
       add_to_list(&grey,PTR_3(object));
     }
     
 
-    object->li_next = TAG_BLACK(object->li_next);
     add_to_list(&black,object);
   }
 
@@ -845,7 +839,6 @@ void push2(obj car, obj tag) {
         }
     }
     rib* result = new.start;
-    result->li_next = TAG_WHITE(result->li_next);
     add_to_list(&white,result);
     result->fields[0] = car;
     result->fields[1] = stack;
