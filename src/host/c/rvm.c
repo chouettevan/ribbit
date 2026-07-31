@@ -698,10 +698,6 @@ static inline long tagp(obj input,obj offset,char value) {
 
 static inline void write_barrier(rib* object,rib* new_ptr) {
   if (IS_NUM((obj)new_ptr)) return;
-  if (IS_NUM((obj)object)) {
-        puts("integer object");
-        exit(-1);
-  }
   if (!IS_BLACK(object->li_next)) return; // source is not black
   if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
   add_to_list(&grey,new_ptr);
@@ -758,31 +754,7 @@ void rt_gc() {
 
 }
 
-static inline void add_to_list(struct list* list,rib* tagged_object) {
-  rib* object = TR_UNTAG(tagged_object);
-  if ((obj)object % 8 != 0) __builtin_trap();
-  if (object != tagged_object) {
-        puts("tagging issue");
-        __builtin_trap();
-  }
-  if (IS_NUM((obj)object)) {
-    puts("integer added to list");
-    __builtin_trap();
-  }
-  if (IS_LIST_END(object)) {
-      puts("list added to list");
-      __builtin_trap();
-  }
-  if (IS_BLACK(object->li_next)) {
-      for (int i=0;i < 3;i++) {
-        rib* field = (rib*)object->fields[i];
-        if (IS_NUM((obj)field)) continue;
-        if (IS_WHITE(field->li_next)) {
-            puts("incorrect colors");
-            __builtin_trap();
-        }
-      }
-  }
+static inline void add_to_list(struct list* list,rib* object) {
   if (object == NULL || list == NULL)
     return;
   if (TR_UNTAG(object->li_next) && TR_UNTAG(object->li_prev)) {
