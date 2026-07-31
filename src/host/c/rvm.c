@@ -716,13 +716,18 @@ void rt_gc() {
 
   if (grey.start == (void*)&grey) {
     if (white.start != (void*)&white) {
-        struct list backup = new;
-        new.start = white.start;
-        white.start->li_prev = (void*)&new;
-
-        white.end->li_next = (void*)((obj)backup.start | ((obj)white.end->li_next & 3));
-        backup.start->li_prev = white.end;
-
+        if (new.start != (void*)&new) {
+            struct list backup = new;
+            new.start = white.start;
+            white.start->li_prev = (void*)&new;
+            white.end->li_next = backup.start; 
+            backup.start->li_prev = white.end;
+        } else {
+            new.start = white.start;
+            new.end = white.end;
+            new.start->li_prev = (void*)&new;
+            new.end->li_next = (void*)&new;
+        }
         white.end = NULL;
         white.start = (void*)&white;
     }
@@ -839,6 +844,7 @@ void push2(obj car, obj tag) {
         }
     }
     rib* result = new.start;
+    result->li_next = TAG_WHITE(result->li_next);
     add_to_list(&white,result);
     result->fields[0] = car;
     result->fields[1] = stack;
