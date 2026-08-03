@@ -702,7 +702,7 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
   add_to_list(&grey,new_ptr);
 }
-void rt_gc() {
+static inline void rt_gc() {
   if (do_not_collect) return;
   if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
     add_to_list(&grey,root);
