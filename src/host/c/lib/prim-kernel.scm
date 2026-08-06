@@ -57,6 +57,11 @@
   __asm__(\"sti\");
   push2(FALSE,PAIR_TAG);
   }")
+(define-primitive (disable-interrupts)
+  "{
+  __asm__(\"cli\");
+  push2(FALSE,PAIR_TAG);
+  }")
 
 
 (define com (lambda (k) (+ 1016 k)))
