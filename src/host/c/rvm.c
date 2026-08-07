@@ -149,7 +149,9 @@ void decompress(){
 #define NULL (0)
 #endif
 
+#ifndef KERNEL
 typedef unsigned long size_t;
+#endif
 
 
 // For versions of the standard lower than C23, bool, true and false needs to
@@ -379,6 +381,7 @@ void *sys_brk(void *addr) {
 
 rib real_root;
 rib *root = &real_root;
+rib* initial_scan;
 void init_heap() {
 #ifdef NO_STD
   heap_start = sys_brk((void *)NULL);
@@ -389,7 +392,11 @@ void init_heap() {
   }
 
 #else
+#ifdef TREADMILL
+  heap_start = malloc(sizeof(obj) * MAX_NB_OBJS*5);
+#else
   heap_start = malloc(HEAP_SIZE_BYTES);
+#endif
 
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
@@ -399,21 +406,13 @@ void init_heap() {
   real_root.fields[0] = (obj)stack;
   real_root.fields[1] = (obj)FALSE;
   real_root.fields[2] = (obj)pc;
-  heap_start = malloc(sizeof(obj) * MAX_NB_OBJS*5);
   if ((obj)heap_start & 7) {
       puts("unaligned heap start");
       exit(-1);
   }
+  initial_scan = heap_start;
   new.start = (void*)&new;
   new.end = NULL;
-  for  (rib* start = heap_start;start < heap_start + MAX_NB_OBJS;start++) {
-    start->li_next = NULL;
-    start->li_prev = NULL;
-    start->fields[0] = 1;
-    start->fields[1] = 1;
-    start->fields[2] = 1;
-    add_to_list(&new,start);
-  }
   black.start = (void*)&black;
   black.end = NULL;
   grey.start = (void*)&grey;
@@ -806,7 +805,16 @@ obj pop() {
 
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
-    if (new.end == NULL || new.start == (void*)&new) { // list is empty
+    if (initial_scan < heap_start + MAX_NB_OBJS) {
+        rib* start = initial_scan;
+        start->li_next = NULL;
+        start->li_prev = NULL;
+        start->fields[0] = 1;
+        start->fields[1] = 1;
+        start->fields[2] = 1;
+        add_to_list(&new,start); 
+        initial_scan++;
+    } else if (new.end == NULL || new.start == (void*)&new) { // list is empty
         for (int i=0; i < HEAP_SIZE_FIELDS && new.start == (void*)&new;i++) {
             rt_gc();
         }
