@@ -772,18 +772,28 @@ static inline void rt_gc() {
   }
 
   if (grey_start == grey_end) {
+#ifdef DEBUG_GC
     puts("collect");
+    rib* scan = white_start;
+    while (scan != white_end) {
+        assert(IS_WHITE(scan));
+        scan = TR_UNTAG(scan->li_next);
+    }
+#endif
     new_start = white_start;
     flipped = 1 - flipped;
     white_start = black_start;
     flags &= ~GC_STARTED;
     rib* object = new_start;
+#ifdef DEBUG_GC
     while (object != new_end) {
+        assert(object != root);
         object->fields[0] = 0x6161616161616162;
         object->fields[1] = 0x6161616161616162;
         object->fields[2] = 0x6161616161616162;
         object = TR_UNTAG(object->li_next);
     }
+#endif
   } else {
     rib* object = grey_end->li_prev;
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
