@@ -418,7 +418,7 @@ void init_heap() {
       puts("unaligned heap start");
       exit(-1);
   }
-  root = heap_start;
+  //root = heap_start;
   initial_scan = heap_start;
   new_start = heap_start;
   new_end = heap_start+5;
@@ -439,10 +439,15 @@ void init_heap() {
      assert((heap_start+i-1)->li_next == heap_start+i);
      assert((heap_start+i+1)->li_prev == heap_start+i);
   }
+
   assert(heap_start->li_prev == heap_start+5);
   assert((heap_start+5)->li_next == heap_start);
   white_start = white_end = new_start;
   grey_end = grey_start;
+
+  root->li_next = root; 
+  root->li_prev = root;
+
   CAR(root) = (obj)stack;
   CDR(root) = (obj)pc;
   TAG(root) = (obj)FALSE;
