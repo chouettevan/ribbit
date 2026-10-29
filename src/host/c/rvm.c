@@ -432,6 +432,15 @@ void init_heap() {
       (heap_start+i)->fields[2] = 1;
       initial_scan++;
   }
+
+  for (int i=1;i < 5;i++) {
+     assert((heap_start+i)->li_next == heap_start+i+1);
+     assert((heap_start+i)->li_prev == heap_start+i-1);
+     assert((heap_start+i-1)->li_next == heap_start+i);
+     assert((heap_start+i+1)->li_prev == heap_start+i);
+  }
+  assert(heap_start->li_prev == heap_start+5);
+  assert((heap_start+5)->li_next == heap_start);
   white_start = white_end = new_start;
   grey_end = grey_start;
   CAR(root) = (obj)stack;
