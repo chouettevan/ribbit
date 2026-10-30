@@ -873,6 +873,7 @@ void push2(obj car, obj tag) {
     } else puts("normal alloc");
     rib* result = new_start;
     assert(result != root);
+    assert(!IS_GREY(result));
     result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
     new_start = TR_UNTAG(new_start->li_next);
     assert(new_start->li_prev != new_end);
