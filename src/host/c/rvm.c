@@ -29,7 +29,13 @@
 // @@(feature grub-kernel
 #define KERNEL
 // )@@
-#ifdef TREADMILL
+
+#define assert(code) ;
+#ifdef DEBUG_GC
+#include <assert.h>
+#endif
+
+#ifdef DEBUG
 #include <assert.h>
 #endif
 
@@ -732,6 +738,7 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   next->li_next = TAG_GREY(grey_start->li_next);
   link(next,grey_start,TR_UNTAG(grey_start->li_next));
 }
+
 static inline void unlink(rib* object) {
     assert(((obj) object & 7) == 0);
     TR_UNTAG(object->li_next)->li_prev = object->li_prev;
@@ -776,7 +783,12 @@ static inline void rt_gc() {
     puts("collect");
     rib* scan = white_start;
     while (scan != white_end) {
-        assert(IS_WHITE(scan));
+        assert(IS_WHITE(scan->li_next));
+        scan = TR_UNTAG(scan->li_next);
+    }
+    scan = black_start;
+    while (scan != black_end) {
+        assert(IS_BLACK(scan->li_next));
         scan = TR_UNTAG(scan->li_next);
     }
 #endif
