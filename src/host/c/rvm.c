@@ -775,6 +775,8 @@ static inline void rt_gc() {
     unlink(root);
     link(root,grey_start,TR_UNTAG(grey_start->li_next));
     grey_end = TR_UNTAG(root->li_next);
+    root->li_next = TAG_GREY(TR_UNTAG(root->li_next));
+    assert(IS_GREY(root->li_next));
     flags |= GC_STARTED;
   }
 
