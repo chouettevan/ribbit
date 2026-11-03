@@ -32,7 +32,12 @@
 
 #define assert(code) ;
 #ifdef DEBUG_GC
-#include <assert.h>
+//#include <assert.h>
+#define assert(code) \
+    if (!(code)) { \
+        printf("assertion failed: %s\n",#code); \
+        __asm__("int3;"); \
+    } 
 #endif
 
 #ifdef DEBUG
@@ -803,6 +808,8 @@ static inline void check_color(rib* object) {
     
 static inline void rt_gc() {
   if (do_not_collect) return;
+  assert(!IS_GREY(white_start));
+  assert(!IS_GREY(white_end));
 
   if (grey_start == grey_end && (flags & GC_STARTED )== 0) {
     puts("start");
@@ -856,6 +863,7 @@ static inline void rt_gc() {
         rib* next = PTR_1(object);
         unlink(next);
         grey_start = grey_start->li_prev;
+        assert(!IS_GREY(grey_start->li_next));
         link(next,grey_start,TR_UNTAG(grey_start->li_next));
         assert(!IS_GREY(grey_start->li_next));
         grey_start = TR_UNTAG(grey_start->li_next);
@@ -868,6 +876,7 @@ static inline void rt_gc() {
         rib* next = PTR_2(object);
         unlink(next);
         grey_start = grey_start->li_prev;
+        assert(!IS_GREY(grey_start->li_next));
         link(next,grey_start,TR_UNTAG(grey_start->li_next));
         assert(!IS_GREY(grey_start->li_next));
         next->li_next = TAG_GREY(TR_UNTAG(next->li_next));
@@ -880,6 +889,7 @@ static inline void rt_gc() {
         rib* next = PTR_3(object);
         unlink(next);
         grey_start = grey_start->li_prev;
+        assert(!IS_GREY(grey_start->li_next));
         link(next,grey_start,TR_UNTAG(grey_start->li_next));
         assert(!IS_GREY(grey_start->li_next));
         next->li_next = TAG_GREY(TR_UNTAG(next->li_next));
@@ -937,6 +947,7 @@ void push2(obj car, obj tag) {
     rib* result = new_start;
     assert(result != root);
     assert(!IS_GREY(result->li_next));
+    assert(IS_GREY(grey_start->li_next) || grey_start == grey_end);
     result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
     new_start = TR_UNTAG(new_start->li_next);
     assert(new_start->li_prev != new_end);
