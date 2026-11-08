@@ -30,6 +30,7 @@
 #define KERNEL
 // )@@
 
+#define DEBUG_GC
 #ifdef DEBUG_GC
 //#include <assert.h>
 #define assert(code) \
@@ -923,7 +924,6 @@ static inline void rt_gc() {
         }
         else if (white_start == next && white_start != white_end) {
             white_start = TR_UNTAG(white_start)->li_next;
-            white_start = white_start->li_prev;
             // puts("white list problems avoided");
         }
         else if (white_end == next && white_start != white_end) {
