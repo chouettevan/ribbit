@@ -30,7 +30,6 @@
 #define KERNEL
 // )@@
 
-#define DEBUG_GC
 #define assert(code) ;
 #ifdef DEBUG_GC
 //#include <assert.h>
@@ -813,7 +812,7 @@ static inline void rt_gc() {
   assert(!IS_GREY(white_end));
 
   if (grey_start == grey_end && (flags & GC_STARTED )== 0) {
-    //puts("start");
+    puts("start");
     unlink(root);
     assert(grey_start != 0);
     assert(!IS_GREY(grey_start->li_next));
@@ -829,7 +828,7 @@ static inline void rt_gc() {
   if (grey_start == grey_end) {
     assert(!IS_GREY(grey_start->li_next));
 #ifdef DEBUG_GC
-    //puts("collect");
+    puts("collect");
     rib* scan = white_start;
     while (scan != white_end) {
         assert(IS_WHITE(scan->li_next));
@@ -858,25 +857,10 @@ static inline void rt_gc() {
   } else {
     assert(IS_GREY(grey_start->li_next));
     rib* object = grey_end->li_prev;
-    assert(object != white_end->li_prev);
-    assert(object != white_start);
     assert(IS_GREY(object->li_next));
 
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
         rib* next = PTR_1(object);
-        if (white_start == white_end && white_end == next) {
-            white_start = white_start->li_prev;
-            white_end = white_end->li_prev;
-        }
-        else if (white_start == next && white_start != white_end) {
-            white_start = TR_UNTAG(white_start)->li_next;
-            // puts("white list problems avoided");
-        }
-        else if (white_end == next && white_start != white_end) {
-           white_end = white_end->li_prev;
-           // puts("white list problems avoided");
-        }
-        assert(IS_WHITE(next));
         unlink(next);
         grey_start = grey_start->li_prev;
         assert(!IS_GREY(grey_start->li_next));
@@ -890,20 +874,6 @@ static inline void rt_gc() {
 
     if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
         rib* next = PTR_2(object);
-        assert(IS_WHITE(next));
-
-        if (white_start == white_end && white_end == next) {
-            white_start = white_start->li_prev;
-            white_end = white_end->li_prev;
-        }
-        else if (white_start == next && white_start != white_end) {
-            white_start = TR_UNTAG(white_start)->li_next;
-            // puts("white list problems avoided");
-        }
-        else if (white_end == next && white_start != white_end) {
-           white_end = white_end->li_prev;
-           // puts("white list problems avoided");
-        }
         unlink(next);
         grey_start = grey_start->li_prev;
         assert(!IS_GREY(grey_start->li_next));
@@ -917,19 +887,6 @@ static inline void rt_gc() {
 
     if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
         rib* next = PTR_3(object);
-        if (white_start == white_end && white_end == next) {
-            white_start = white_start->li_prev;
-            white_end = white_end->li_prev;
-        }
-        else if (white_start == next && white_start != white_end) {
-            white_start = TR_UNTAG(white_start)->li_next;
-            // puts("white list problems avoided");
-        }
-        else if (white_end == next && white_start != white_end) {
-           white_end = white_end->li_prev;
-           // puts("white list problems avoided");
-        }
-        assert(IS_WHITE(next));
         unlink(next);
         grey_start = grey_start->li_prev;
         assert(!IS_GREY(grey_start->li_next));
@@ -945,9 +902,6 @@ static inline void rt_gc() {
     grey_end = grey_end->li_prev;
     assert(black_start == object);
     assert(IS_BLACK(object->li_next));
-
-    assert(!IS_GREY(white_start));
-    assert(!IS_GREY(white_end));
   }
 }
 
@@ -975,12 +929,12 @@ void push2(obj car, obj tag) {
         start->fields[2] = 0x6161616161616161;
         link(start,new_start,TR_UNTAG(new_start->li_next));
         if (new_start == new_end) {
-      //      puts("empty");
+            puts("empty");
             new_end = TR_UNTAG(new_start->li_next);
         }
         initial_scan++;
     } else if (new_start == new_end) { // list is empty
-       // puts("out of real time");
+        puts("out of real time");
         for (int i=0; i < HEAP_SIZE_FIELDS && new_start == new_end && do_not_collect == 0;i++) {
             rt_gc();
         }
@@ -989,9 +943,10 @@ void push2(obj car, obj tag) {
             puts("out of memory");
             exit(-1);
         }
-    }// else puts("normal alloc");
+    } else puts("normal alloc");
     rib* result = new_start;
     assert(result != root);
+    assert(!IS_GREY(result->li_next));
     assert(IS_GREY(grey_start->li_next) || grey_start == grey_end);
     result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
     new_start = TR_UNTAG(new_start->li_next);
