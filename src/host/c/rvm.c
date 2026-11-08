@@ -31,7 +31,6 @@
 // )@@
 
 #define DEBUG_GC
-#define assert(code) ;
 #ifdef DEBUG_GC
 //#include <assert.h>
 #define assert(code) \
@@ -39,6 +38,8 @@
         printf("assertion failed: %s\n",#code); \
         __asm__("int3;"); \
     } 
+#else
+#define assert(code) ;
 #endif
 
 #ifdef DEBUG
